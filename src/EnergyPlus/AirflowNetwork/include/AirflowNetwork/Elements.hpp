@@ -1008,7 +1008,7 @@ namespace AirflowNetwork {
         int EPlusTypeNum;          // Provide EPlus component type
 
         // Default Constructor
-        AirflowNetworkCompProp() : CompTypeNum(0), TypeNum(0), CompNum(0)//, EPlusTypeNum(0)
+        AirflowNetworkCompProp() : CompTypeNum(0), TypeNum(0), CompNum(0), EPlusTypeNum(0)
         {
         }
     };
