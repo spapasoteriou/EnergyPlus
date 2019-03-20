@@ -48,6 +48,8 @@
 // Google Test Headers
 #include <gtest/gtest.h>
 
+#include <cfenv>
+
 // EnergyPlus Headers
 #include <EnergyPlus/DataErrorTracking.hh>
 #include <EnergyPlus/DataGlobals.hh>
@@ -140,4 +142,10 @@ TEST_F(EnergyPlusFixture, DisplayMessageTest)
     EXPECT_FALSE(has_cout_output(true));
     DisplayString("Testing");
     EXPECT_TRUE(has_cout_output(true));
+}
+
+TEST_F(EnergyPlusFixture, ExpUnderflow)
+{
+    EXPECT_EQ(0.0, epexp(-800.0));
+    EXPECT_FALSE(std::fetestexcept(FE_UNDERFLOW));
 }

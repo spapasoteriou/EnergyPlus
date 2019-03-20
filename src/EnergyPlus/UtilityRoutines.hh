@@ -120,14 +120,19 @@ template <typename T> inline T pow7(T const &x)
     return y * x;
 }
 
+inline Real64 epexp(double x)
+{
+    return std::exp(x);
+}
+
 bool env_var_on(std::string const &env_var_str);
 
 class FatalError : public std::runtime_error
 {
 public:
-    FatalError(std::string const& msg):
-    runtime_error(msg)
-    {}
+    FatalError(std::string const &msg) : runtime_error(msg)
+    {
+    }
 };
 
 void ShowFatalError(std::string const &ErrorMessage, Optional_int OutUnit1 = _, Optional_int OutUnit2 = _);
@@ -549,20 +554,18 @@ namespace UtilityRoutines {
 
     std::string IPTrimSigDigits(int const IntegerValue);
 
-
-
     // Two structs for case insensitive containers.
     // Eg: for unordered_map, we need to have a case insenstive hasher and a case insensitive comparator
     // (The default allocator for unordered_map is fine)
     // For map, you'd only need the comparator
     struct case_insensitive_hasher
     {
-        size_t operator()(const std::string& key) const noexcept;
+        size_t operator()(const std::string &key) const noexcept;
     };
 
     struct case_insensitive_comparator
     {
-        bool operator()(const std::string& a, const std::string& b) const noexcept;
+        bool operator()(const std::string &a, const std::string &b) const noexcept;
     };
 
 } // namespace UtilityRoutines
