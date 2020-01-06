@@ -135,6 +135,7 @@ namespace DataConvergParams {
 
     int MaxPlantSubIterations(8); // Iteration Max for Plant Simulation sub iterations
     int MinPlantSubIterations(2); // Iteration Min for Plant Simulation sub iterations
+    int MinCommonPipePlantSubIterations(7); // Iteration Min for Plant Simulation sub iterations when a common pipe is present in any plant loop
 
     // Object Data
     Array1D<HVACZoneInletConvergenceStruct> ZoneInletConvergence;

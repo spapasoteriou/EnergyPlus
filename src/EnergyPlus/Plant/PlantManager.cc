@@ -179,7 +179,6 @@ namespace EnergyPlus {
             // SUBROUTINE INFORMATION:
             //       AUTHOR         Sankaranarayanan K P
             //       DATE WRITTEN   Apr 2005
-            //       MODIFIED
             //       RE-ENGINEERED  B. Griffith, Feb. 2010
 
             // PURPOSE OF THIS SUBROUTINE:
@@ -190,53 +189,29 @@ namespace EnergyPlus {
             // Calls half loop sides to be simulated in predetermined order.
             // Reset the flags as necessary
 
-            // Using/Aliasing
-            using DataConvergParams::MaxPlantSubIterations;
-            using DataConvergParams::MinPlantSubIterations;
-            using PlantUtilities::LogPlantConvergencePoints;
-
-            // SUBROUTINE VARIABLE DEFINITIONS
-            int IterPlant;
-            int LoopNum;
-            int LoopSide;
-            int LoopSideNum;
-            int OtherSide;
-            bool SimHalfLoopFlag;
-            int HalfLoopNum;
-            int CurntMinPlantSubIterations;
-
-            if (std::any_of(PlantLoop.begin(), PlantLoop.end(), [](DataPlant::PlantLoopData const &e) {
-                return (e.CommonPipeType == DataPlant::CommonPipe_Single) ||
-                       (e.CommonPipeType == DataPlant::CommonPipe_TwoWay);
-            })) {
-                CurntMinPlantSubIterations = max(7, MinPlantSubIterations);
-            } else {
-                CurntMinPlantSubIterations = MinPlantSubIterations;
-            }
-
             if (TotNumLoops <= 0) { // quick return if no plant in model
                 SimPlantLoops = false;
                 return;
             }
 
-            IterPlant = 0;
+            int IterPlant = 0;
             InitializeLoops(FirstHVACIteration);
 
-            while ((SimPlantLoops) && (IterPlant <= MaxPlantSubIterations)) {
+            while ((SimPlantLoops) && (IterPlant <= DataConvergParams::MaxPlantSubIterations)) {
                 // go through half loops in predetermined calling order
-                for (HalfLoopNum = 1; HalfLoopNum <= TotNumHalfLoops; ++HalfLoopNum) {
+                for (int HalfLoopNum = 1; HalfLoopNum <= TotNumHalfLoops; ++HalfLoopNum) {
 
-                    LoopNum = PlantCallingOrderInfo(HalfLoopNum).LoopIndex;
-                    LoopSide = PlantCallingOrderInfo(HalfLoopNum).LoopSide;
-                    OtherSide = 3 - LoopSide; // will give us 1 if LoopSide is 2, or 2 if LoopSide is 1
+                    int LoopNum = PlantCallingOrderInfo(HalfLoopNum).LoopIndex;
+                    int LoopSide = PlantCallingOrderInfo(HalfLoopNum).LoopSide;
+                    int OtherSide = 3 - LoopSide; // will give us 1 if LoopSide is 2, or 2 if LoopSide is 1
 
                     auto &this_loop(PlantLoop(LoopNum));
                     auto &this_loop_side(this_loop.LoopSide(LoopSide));
                     auto &other_loop_side(this_loop.LoopSide(OtherSide));
 
-                    SimHalfLoopFlag = this_loop_side.SimLoopSideNeeded; // set half loop sim flag
+                    bool SimHalfLoopFlag = this_loop_side.SimLoopSideNeeded; // set half loop sim flag
 
-                    if (SimHalfLoopFlag || IterPlant <= CurntMinPlantSubIterations) {
+                    if (SimHalfLoopFlag || IterPlant <= DataConvergParams::MinPlantSubIterations) {
 
                         PlantHalfLoopSolver(FirstHVACIteration, LoopSide, LoopNum, other_loop_side.SimLoopSideNeeded);
 
@@ -260,8 +235,8 @@ namespace EnergyPlus {
 
                 // decide new status for SimPlantLoops flag
                 SimPlantLoops = false;
-                for (LoopNum = 1; LoopNum <= TotNumLoops; ++LoopNum) {
-                    for (LoopSideNum = 1; LoopSideNum <= 2; ++LoopSideNum) {
+                for (int LoopNum = 1; LoopNum <= TotNumLoops; ++LoopNum) {
+                    for (int LoopSideNum = 1; LoopSideNum <= 2; ++LoopSideNum) {
                         if (PlantLoop(LoopNum).LoopSide(LoopSideNum).SimLoopSideNeeded) {
                             SimPlantLoops = true;
                             goto LoopLevel_exit;
@@ -271,14 +246,14 @@ namespace EnergyPlus {
                 LoopLevel_exit:;
 
                 ++IterPlant; // Increment the iteration counter
-                if (IterPlant < CurntMinPlantSubIterations) SimPlantLoops = true;
+                if (IterPlant < DataConvergParams::MinPlantSubIterations) SimPlantLoops = true;
                 ++PlantManageSubIterations; // these are summed across all half loops for reporting
             }                               // while
 
             // add check for non-plant system sim flag updates
             //  could set SimAirLoops, SimElecCircuits, SimZoneEquipment flags for now
-            for (LoopNum = 1; LoopNum <= TotNumLoops; ++LoopNum) {
-                for (LoopSide = DemandSide; LoopSide <= SupplySide; ++LoopSide) {
+            for (int LoopNum = 1; LoopNum <= TotNumLoops; ++LoopNum) {
+                for (int LoopSide = DemandSide; LoopSide <= SupplySide; ++LoopSide) {
                     auto &this_loop_side(PlantLoop(LoopNum).LoopSide(LoopSide));
                     if (this_loop_side.SimAirLoopsNeeded) SimAirLoops = true;
                     if (this_loop_side.SimZoneEquipNeeded) SimZoneEquipment = true;
@@ -288,7 +263,7 @@ namespace EnergyPlus {
             }
 
             // Also log the convergence history of all loopsides once complete
-            LogPlantConvergencePoints(FirstHVACIteration);
+            PlantUtilities::LogPlantConvergencePoints(FirstHVACIteration);
         }
 
         void GetPlantLoopData() {
@@ -359,6 +334,7 @@ namespace EnergyPlus {
                 return;
             }
 
+            bool anyCommonPipe = false;
             for (LoopNum = 1; LoopNum <= TotNumLoops; ++LoopNum) {
                 Alpha = "";
                 Num = 0.0;
@@ -545,8 +521,10 @@ namespace EnergyPlus {
                 if (this_loop.TypeOfLoop == Plant) {
                     if (UtilityRoutines::SameString(Alpha(17), "CommonPipe")) {
                         this_loop.CommonPipeType = CommonPipe_Single;
+                        anyCommonPipe = true;
                     } else if (UtilityRoutines::SameString(Alpha(17), "TwoWayCommonPipe")) {
                         this_loop.CommonPipeType = CommonPipe_TwoWay;
+                        anyCommonPipe = true;
                     } else if (UtilityRoutines::SameString(Alpha(17), "None") || lAlphaFieldBlanks(17)) {
                         this_loop.CommonPipeType = CommonPipe_No;
                     } else {
@@ -730,6 +708,12 @@ namespace EnergyPlus {
                                     "Plant",
                                     "Average",
                                     PlantLoop(LoopNum).Name);
+            }
+
+            // If any common pipe is present, increase the minimum plant iterations
+            if (anyCommonPipe) {
+                DataConvergParams::MinPlantSubIterations = max(DataConvergParams::MinCommonPipePlantSubIterations, DataConvergParams::MinPlantSubIterations);
+                DataConvergParams::MaxPlantSubIterations = max(DataConvergParams::MaxPlantSubIterations, DataConvergParams::MinPlantSubIterations);
             }
         }
 

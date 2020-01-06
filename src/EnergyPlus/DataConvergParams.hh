@@ -132,6 +132,7 @@ namespace DataConvergParams {
 
     extern int MaxPlantSubIterations; // Iteration Max for Plant Simulation sub iterations
     extern int MinPlantSubIterations; // Iteration Min for Plant Simulation sub iterations
+    extern int MinCommonPipePlantSubIterations; // Iteration Min for Plant Simulation sub iterations when a common pipe is present in any plant loop
 
     // Types
 
