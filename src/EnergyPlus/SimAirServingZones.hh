@@ -179,6 +179,8 @@ namespace SimAirServingZones {
                                  int const Update      // 1=BeforeBranchSim; 2=AfterBranchSim
     );
 
+    void UpdateBranchMixedAirSetpoints(EnergyPlusData& state, int const AirLoopNum, int const BranchNum, bool const FirstHVACIteration);
+
     void ResolveSysFlow(int const SysNum, // the primary air system number
                         bool &SysReSim    // Set to TRUE if mass balance fails and resimulation is needed
     );

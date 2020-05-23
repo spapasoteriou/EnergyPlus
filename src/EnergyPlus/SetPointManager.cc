@@ -508,6 +508,35 @@ namespace SetPointManager {
         }
     }
 
+    void ManageMixedAirSetPoints(EnergyPlusData& state)
+    {
+        // PURPOSE OF THIS SUBROUTINE:
+        // Update mixed air and OA pretreat setpoint managers during HVAC iterations
+
+        // First time ManageSetPoints is called, get the input for all the setpoint managers
+        if (GetInputFlag) {
+            GetSetPointManagerInputs(state);
+            GetInputFlag = false;
+        }
+
+        InitSetPointManagers();
+
+        if (ManagerOn) {
+            // The Mixed Air Setpoint Managers (since they depend on other setpoints, they must be calculated
+            // and updated next to last).
+            for (int SetPtMgrNum = 1; SetPtMgrNum <= NumMixedAirSetPtMgrs; ++SetPtMgrNum) {
+                MixedAirSetPtMgr(SetPtMgrNum).calculate();
+            }
+            UpdateMixedAirSetPoints();
+            // The Outside Air Pretreat Setpoint Managers (since they depend on other setpoints, they must be calculated
+            // and updated last).
+            for (int SetPtMgrNum = 1; SetPtMgrNum <= NumOAPretreatSetPtMgrs; ++SetPtMgrNum) {
+                OAPretreatSetPtMgr(SetPtMgrNum).calculate();
+            }
+            UpdateOAPretreatSetPoints();
+        }
+    }
+
     void GetSetPointManagerInputs(EnergyPlusData &state)
     {
         // wrapper for GetInput to allow unit testing when fatal inputs are detected

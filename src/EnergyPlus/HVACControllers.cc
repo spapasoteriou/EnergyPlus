@@ -362,42 +362,42 @@ namespace HVACControllers {
             }
         }
 
-        if (ControllerProps(ControlNum).BypassControllerCalc && BypassOAController) {
-            IsUpToDateFlag = true;
-            IsConvergedFlag = true;
-            if (present(AllowWarmRestartFlag)) AllowWarmRestartFlag = true;
-            return;
-        }
+        //if (ControllerProps(ControlNum).BypassControllerCalc && BypassOAController) {
+        //    IsUpToDateFlag = true;
+        //    IsConvergedFlag = true;
+        //    if (present(AllowWarmRestartFlag)) AllowWarmRestartFlag = true;
+        //    return;
+        //}
 
         // Find the correct ControllerNumber with the AirLoop & CompNum from AirLoop Derived Type
         // ControlNum = AirLoopEquip(AirLoopNum)%ComponentOfTypeNum(CompNum)
 
         // detect if plant is locked and flow cannot change
-        if (ControllerProps(ControlNum).ActuatedNodePlantLoopNum > 0) {
+        //if (ControllerProps(ControlNum).ActuatedNodePlantLoopNum > 0) {
 
-            if (PlantLoop(ControllerProps(ControlNum).ActuatedNodePlantLoopNum)
-                    .LoopSide(ControllerProps(ControlNum).ActuatedNodePlantLoopSide)
-                    .FlowLock == FlowLocked) {
-                // plant is rigid so controller cannot change anything.
-                // Update the current Controller to the outlet nodes
-                UpdateController(ControlNum);
+        //    if (PlantLoop(ControllerProps(ControlNum).ActuatedNodePlantLoopNum)
+        //            .LoopSide(ControllerProps(ControlNum).ActuatedNodePlantLoopSide)
+        //            .FlowLock == FlowLocked) {
+        //        // plant is rigid so controller cannot change anything.
+        //        // Update the current Controller to the outlet nodes
+        //        UpdateController(ControlNum);
 
-                IsConvergedFlag = true;
-                return;
-            }
-        }
+        //        IsConvergedFlag = true;
+        //        return;
+        //    }
+        //}
 
         // Detect if speculative warm restart is supported by this computer
-        if (present(AllowWarmRestartFlag)) {
-            // NOTE: Never allow speculative warm restart with dual humidity ratio and temperature control
-            //       because the actual setpoint depends on the current temperature and max hum ratio at
-            //       the sensed node, and therefore might not be known until after one air loop simulation.
-            if (ControllerProps(ControlNum).ControlVar == iTemperatureAndHumidityRatio) {
-                AllowWarmRestartFlag = false;
-            } else {
-                AllowWarmRestartFlag = true;
-            }
-        }
+        //if (present(AllowWarmRestartFlag)) {
+        //    // NOTE: Never allow speculative warm restart with dual humidity ratio and temperature control
+        //    //       because the actual setpoint depends on the current temperature and max hum ratio at
+        //    //       the sensed node, and therefore might not be known until after one air loop simulation.
+        //    if (ControllerProps(ControlNum).ControlVar == iTemperatureAndHumidityRatio) {
+        //        AllowWarmRestartFlag = false;
+        //    } else {
+        //        AllowWarmRestartFlag = true;
+        //    }
+        //}
 
         if (ControllerProps(ControlNum).InitFirstPass) {
             // Coil must first be sized to:
@@ -411,79 +411,79 @@ namespace HVACControllers {
         // side-effects on the calculation of Node(ActuatedNode)%MassFlowRateMaxAvail used to
         // determine ControllerProps(ControlNum)%MaxAvailActuated.
         // Plant upgrades for V7 added init to these cases because MassFlowRateMaxAvail is better controlled
-        {
-            auto const SELECT_CASE_var(Operation);
-            if (SELECT_CASE_var == iControllerOpColdStart) {
-                // For temperature and humidity control reset humidity control override if it was set
-                if (HVACControllers::ControllerProps(ControlNum).HumRatCtrlOverride) {
-                    HVACControllers::ControllerProps(ControlNum).HumRatCtrlOverride = false;
-                    // Put the controller tolerance (offset) back to it's original value
-                    RootFinder::SetupRootFinder(
-                        RootFinders(ControlNum), iSlopeDecreasing, iMethodBrent, constant_zero, 1.0e-6, ControllerProps(ControlNum).Offset);
-                }
+        //{
+        //    auto const SELECT_CASE_var(Operation);
+        //    if (SELECT_CASE_var == iControllerOpColdStart) {
+        //        // For temperature and humidity control reset humidity control override if it was set
+        //        if (HVACControllers::ControllerProps(ControlNum).HumRatCtrlOverride) {
+        //            HVACControllers::ControllerProps(ControlNum).HumRatCtrlOverride = false;
+        //            // Put the controller tolerance (offset) back to it's original value
+        //            RootFinder::SetupRootFinder(
+        //                RootFinders(ControlNum), iSlopeDecreasing, iMethodBrent, constant_zero, 1.0e-6, ControllerProps(ControlNum).Offset);
+        //        }
 
-                // If a iControllerOpColdStart call, reset the actuator inlet flows
-                ResetController(ControlNum, false, IsConvergedFlag);
-                // Update the current Controller to the outlet nodes
-                UpdateController(ControlNum);
+        //        // If a iControllerOpColdStart call, reset the actuator inlet flows
+        //        ResetController(ControlNum, false, IsConvergedFlag);
+        //        // Update the current Controller to the outlet nodes
+        //        UpdateController(ControlNum);
 
-            } else if (SELECT_CASE_var == iControllerOpWarmRestart) {
-                // If a iControllerOpWarmRestart call, set the actuator inlet flows to previous solution
-                ResetController(ControlNum, true, IsConvergedFlag);
-                // Update the current Controller to the outlet nodes
-                UpdateController(ControlNum);
+        //    } else if (SELECT_CASE_var == iControllerOpWarmRestart) {
+        //        // If a iControllerOpWarmRestart call, set the actuator inlet flows to previous solution
+        //        ResetController(ControlNum, true, IsConvergedFlag);
+        //        // Update the current Controller to the outlet nodes
+        //        UpdateController(ControlNum);
 
-            } else if (SELECT_CASE_var == iControllerOpIterate) {
-                // With the correct ControlNum Initialize all Controller related parameters
-                InitController(state, ControlNum, IsConvergedFlag);
+        //    } else if (SELECT_CASE_var == iControllerOpIterate) {
+        //        // With the correct ControlNum Initialize all Controller related parameters
+        //        InitController(state, ControlNum, IsConvergedFlag);
 
-                // No initialization needed: should have been done before
-                // Simulate the correct Controller with the current ControlNum
-                ControllerType = ControllerProps(ControlNum).ControllerType_Num;
+        //        // No initialization needed: should have been done before
+        //        // Simulate the correct Controller with the current ControlNum
+        //        ControllerType = ControllerProps(ControlNum).ControllerType_Num;
 
-                {
-                    auto const SELECT_CASE_var1(ControllerType);
-                    if (SELECT_CASE_var1 == ControllerSimple_Type) { // 'Controller:WaterCoil'
-                        CalcSimpleController(ControlNum, FirstHVACIteration, IsConvergedFlag, IsUpToDateFlag, ControllerName);
-                    } else {
-                        ShowFatalError("Invalid controller type in ManageControllers=" + ControllerProps(ControlNum).ControllerType);
-                    }
-                }
+        //        {
+        //            auto const SELECT_CASE_var1(ControllerType);
+        //            if (SELECT_CASE_var1 == ControllerSimple_Type) { // 'Controller:WaterCoil'
+        //                CalcSimpleController(ControlNum, FirstHVACIteration, IsConvergedFlag, IsUpToDateFlag, ControllerName);
+        //            } else {
+        //                ShowFatalError("Invalid controller type in ManageControllers=" + ControllerProps(ControlNum).ControllerType);
+        //            }
+        //        }
 
-                // Update the current Controller to the outlet nodes
-                UpdateController(ControlNum);
+        //        // Update the current Controller to the outlet nodes
+        //        UpdateController(ControlNum);
 
-                CheckTempAndHumRatCtrl(ControlNum, IsConvergedFlag);
+        //        CheckTempAndHumRatCtrl(ControlNum, IsConvergedFlag);
 
-            } else if (SELECT_CASE_var == iControllerOpEnd) {
-                // With the correct ControlNum Initialize all Controller related parameters
-                InitController(state, ControlNum, IsConvergedFlag);
+        //    } else if (SELECT_CASE_var == iControllerOpEnd) {
+        //        // With the correct ControlNum Initialize all Controller related parameters
+        //        InitController(state, ControlNum, IsConvergedFlag);
 
-                // No initialization needed: should have been done before
-                // Check convergence for the correct Controller with the current ControlNum
-                ControllerType = ControllerProps(ControlNum).ControllerType_Num;
+        //        // No initialization needed: should have been done before
+        //        // Check convergence for the correct Controller with the current ControlNum
+        //        ControllerType = ControllerProps(ControlNum).ControllerType_Num;
 
-                {
-                    auto const SELECT_CASE_var1(ControllerType);
-                    if (SELECT_CASE_var1 == ControllerSimple_Type) { // 'Controller:WaterCoil'
-                        CheckSimpleController(ControlNum, IsConvergedFlag);
-                        SaveSimpleController(ControlNum, FirstHVACIteration, IsConvergedFlag);
-                    } else {
-                        ShowFatalError("Invalid controller type in ManageControllers=" + ControllerProps(ControlNum).ControllerType);
-                    }
-                }
+        //        {
+        //            auto const SELECT_CASE_var1(ControllerType);
+        //            if (SELECT_CASE_var1 == ControllerSimple_Type) { // 'Controller:WaterCoil'
+        //                CheckSimpleController(ControlNum, IsConvergedFlag);
+        //                SaveSimpleController(ControlNum, FirstHVACIteration, IsConvergedFlag);
+        //            } else {
+        //                ShowFatalError("Invalid controller type in ManageControllers=" + ControllerProps(ControlNum).ControllerType);
+        //            }
+        //        }
 
-            } else {
-                ShowFatalError("ManageControllers: Invalid Operation passed=" + TrimSigDigits(Operation) + ", Controller name=" + ControllerName);
-            }
-        }
+        //    } else {
+        //        ShowFatalError("ManageControllers: Invalid Operation passed=" + TrimSigDigits(Operation) + ", Controller name=" + ControllerName);
+        //    }
+        //}
 
         // Write detailed diagnostic for individual controller
         // To enable generating an individual, detailed trace file for each controller on each air loop,
         // define the environment variable TRACE_CONTROLLER=YES or TRACE_CONTROLLER=Y
-        if (TraceHVACControllerEnvFlag) {
-            TraceIndividualController(ControlNum, FirstHVACIteration, AirLoopControlInfo(AirLoopNum).AirLoopPass, Operation, IsConvergedFlag);
-        }
+        //if (TraceHVACControllerEnvFlag) {
+        //    TraceIndividualController(ControlNum, FirstHVACIteration, AirLoopControlInfo(AirLoopNum).AirLoopPass, Operation, IsConvergedFlag);
+        //}
     }
 
     // Get Input Section of the Module

@@ -107,6 +107,7 @@
 #include <EnergyPlus/OutputReportPredefined.hh>
 #include <EnergyPlus/Psychrometrics.hh>
 #include <EnergyPlus/ReportSizingManager.hh>
+#include <EnergyPlus/SetPointManager.hh>
 #include <EnergyPlus/SimAirServingZones.hh>
 #include <EnergyPlus/SizingManager.hh>
 #include <EnergyPlus/SplitterComponent.hh>
@@ -835,6 +836,22 @@ namespace SimAirServingZones {
                     PrimaryAirSystem(AirSysNum).Branch(BranchNum).Comp(CompNum).NodeNameOut = OutletNodeNames(CompNum);
                     PrimaryAirSystem(AirSysNum).Branch(BranchNum).Comp(CompNum).NodeNumOut = OutletNodeNumbers(CompNum);
                     PrimaryAirSystem(AirSysNum).Branch(BranchNum).NodeNum(CompNum + 1) = OutletNodeNumbers(CompNum);
+
+                    // Check for a fan and fill data to use in UpdateBranchMixedAirSetpoints
+                    if (UtilityRoutines::SameString(CompTypes(CompNum).substr(0, 4), "Fan:")) {
+                        PrimaryAirSystem(AirSysNum).Branch(BranchNum).branchFanInletNodeNum = InletNodeNumbers(CompNum);
+                        PrimaryAirSystem(AirSysNum).Branch(BranchNum).branchFanName = CompNames(CompNum);
+                        if (UtilityRoutines::SameString(CompTypes(CompNum).substr(0, 4), "Fan:SystemModel")) {
+                            PrimaryAirSystem(AirSysNum).Branch(BranchNum).branchFanModelTypeEnum = fanModelTypeEnum::objectVectorOOFanSystemModel;
+                            PrimaryAirSystem(AirSysNum).Branch(BranchNum).branchFanVecIndex = HVACFan::getFanObjectVectorIndex(CompNames(CompNum));
+                        } else {
+                            int fanIndex = 0;
+                            bool fanErrorFound;
+                            Fans::GetFanIndex(state.fans, CompNames(CompNum), fanIndex, fanErrorFound);
+                            PrimaryAirSystem(AirSysNum).Branch(BranchNum).branchFanModelTypeEnum = fanModelTypeEnum::structArrayLegacyFanModels;
+                            PrimaryAirSystem(AirSysNum).Branch(BranchNum).branchFanNum = fanIndex;
+                        }
+                    }
 
                     // Check for Outside Air system; if there, store its connection node numbers to primary air system
                     if (UtilityRoutines::SameString(CompTypes(CompNum), "AirLoopHVAC:OutdoorAirSystem")) {
@@ -2798,10 +2815,11 @@ namespace SimAirServingZones {
         // Next condition is true whenever the final check for the air loop was converged
         // at the previous SimAirLoop call
         // Next conditions should detect when air mass flow rates have changed
-        DoWarmRestartFlag = PrimaryAirSystem(AirLoopNum).NumControllers > 0 && AirLoopControlInfo(AirLoopNum).AllowWarmRestartFlag &&
-                            !FirstHVACIteration && !SysSizingCalc && AirLoopControlInfo(AirLoopNum).ConvergedFlag &&
-                            !AirLoopControlInfo(AirLoopNum).LoopFlowRateSet && !AirLoopControlInfo(AirLoopNum).NewFlowRateFlag;
+        //DoWarmRestartFlag = PrimaryAirSystem(AirLoopNum).NumControllers > 0 && AirLoopControlInfo(AirLoopNum).AllowWarmRestartFlag &&
+        //                    !FirstHVACIteration && !SysSizingCalc && AirLoopControlInfo(AirLoopNum).ConvergedFlag &&
+        //                    !AirLoopControlInfo(AirLoopNum).LoopFlowRateSet && !AirLoopControlInfo(AirLoopNum).NewFlowRateFlag;
 
+        DoWarmRestartFlag = false;
         if (!DoWarmRestartFlag) {
             // Solve controllers with cold start using default initial values
             SolveAirLoopControllers(state, FirstHVACIteration, AirLoopNum, AirLoopConvergedFlag, IterMax, IterTot, NumCalls);
@@ -2813,7 +2831,7 @@ namespace SimAirServingZones {
             AirLoopIterTot += IterTot;
         } else {
             // First try with speculative warm restart using previous solution
-            ReSolveAirLoopControllers(state, FirstHVACIteration, AirLoopNum, AirLoopConvergedFlag, IterMax, IterTot, NumCalls);
+            //ReSolveAirLoopControllers(state, FirstHVACIteration, AirLoopNum, AirLoopConvergedFlag, IterMax, IterTot, NumCalls);
 
             // Update air loop trackers
             WarmRestartStatus = iControllerWarmRestartSuccess;
@@ -2958,6 +2976,9 @@ namespace SimAirServingZones {
 
             // BypassOAController is true here since we do not want to simulate the controller if it has already been simulated in the OA system
             // ControllerConvergedFlag is returned true here for water coils in OA system
+
+            // For now, call the controllers to get them initilized and sized. 
+            BypassOAController = false;
             ManageControllers(state, PrimaryAirSystem(AirLoopNum).ControllerName(AirLoopControlNum),
                               PrimaryAirSystem(AirLoopNum).ControllerIndex(AirLoopControlNum),
                               FirstHVACIteration,
@@ -2978,90 +2999,90 @@ namespace SimAirServingZones {
         IsUpToDateFlag = true;
 
         // Loop over the air sys controllers until convergence or MaxIter iterations
-        for (int AirLoopControlNum = 1; AirLoopControlNum <= PrimaryAirSystem(AirLoopNum).NumControllers; ++AirLoopControlNum) {
+        //for (int AirLoopControlNum = 1; AirLoopControlNum <= PrimaryAirSystem(AirLoopNum).NumControllers; ++AirLoopControlNum) {
 
-            Iter = 0;
-            ControllerConvergedFlag = false;
-            // if the controller can be locked out by the economizer operation and the economizer is active, leave the controller inactive
-            if (AirLoopControlInfo(AirLoopNum).EconoActive) {
-                // nesting this next if to try and speed this up. If economizer is not active, it doesn't matter if CanBeLockedOutByEcono = true
-                if (PrimaryAirSystem(AirLoopNum).CanBeLockedOutByEcono(AirLoopControlNum)) {
-                    ControllerConvergedFlag = true;
-                    continue;
-                }
-            }
+        //    Iter = 0;
+        //    ControllerConvergedFlag = false;
+        //    // if the controller can be locked out by the economizer operation and the economizer is active, leave the controller inactive
+        //    if (AirLoopControlInfo(AirLoopNum).EconoActive) {
+        //        // nesting this next if to try and speed this up. If economizer is not active, it doesn't matter if CanBeLockedOutByEcono = true
+        //        if (PrimaryAirSystem(AirLoopNum).CanBeLockedOutByEcono(AirLoopControlNum)) {
+        //            ControllerConvergedFlag = true;
+        //            continue;
+        //        }
+        //    }
 
-            // For each controller in sequence, iterate until convergence
-            while (!ControllerConvergedFlag) {
+        //    // For each controller in sequence, iterate until convergence
+        //    while (!ControllerConvergedFlag) {
 
-                ++Iter;
+        //        ++Iter;
 
-                ManageControllers(state, PrimaryAirSystem(AirLoopNum).ControllerName(AirLoopControlNum),
-                                  PrimaryAirSystem(AirLoopNum).ControllerIndex(AirLoopControlNum),
-                                  FirstHVACIteration,
-                                  AirLoopNum,
-                                  iControllerOpIterate,
-                                  ControllerConvergedFlag,
-                                  IsUpToDateFlag,
-                                  BypassOAController);
+        //        ManageControllers(state, PrimaryAirSystem(AirLoopNum).ControllerName(AirLoopControlNum),
+        //                          PrimaryAirSystem(AirLoopNum).ControllerIndex(AirLoopControlNum),
+        //                          FirstHVACIteration,
+        //                          AirLoopNum,
+        //                          iControllerOpIterate,
+        //                          ControllerConvergedFlag,
+        //                          IsUpToDateFlag,
+        //                          BypassOAController);
 
-                PrimaryAirSystem(AirLoopNum).ControlConverged(AirLoopControlNum) = ControllerConvergedFlag;
+        //        PrimaryAirSystem(AirLoopNum).ControlConverged(AirLoopControlNum) = ControllerConvergedFlag;
 
-                if (!ControllerConvergedFlag) {
-                    // Only check abnormal termination if not yet converged
-                    // The iteration counter has been exceeded.
-                    if (Iter > MaxIter) {
-                        // Indicate that this air loop is not converged
-                        AirLoopConvergedFlag = false;
+        //        if (!ControllerConvergedFlag) {
+        //            // Only check abnormal termination if not yet converged
+        //            // The iteration counter has been exceeded.
+        //            if (Iter > MaxIter) {
+        //                // Indicate that this air loop is not converged
+        //                AirLoopConvergedFlag = false;
 
-                        // The warning message will be suppressed during the warm up days.
-                        if (!WarmupFlag) {
-                            ++ErrCount;
-                            if (ErrCount < 15) {
-                                ErrEnvironmentName = EnvironmentName;
-                                const auto CharErrOut = fmt::to_string(MaxIter);
-                                ShowWarningError("SolveAirLoopControllers: Maximum iterations (" + CharErrOut + ") exceeded for " +
-                                                 PrimaryAirSystem(AirLoopNum).Name + ", at " + EnvironmentName + ", " + CurMnDy + ' ' +
-                                                 CreateSysTimeIntervalString());
-                            } else {
-                                if (EnvironmentName != ErrEnvironmentName) {
-                                    MaxErrCount = 0;
-                                    ErrEnvironmentName = EnvironmentName;
-                                }
-                                ShowRecurringWarningErrorAtEnd("SolveAirLoopControllers: Exceeding Maximum iterations for " +
-                                                                   PrimaryAirSystem(AirLoopNum).Name + " during " + EnvironmentName + " continues",
-                                                               MaxErrCount);
-                            }
-                        }
+        //                // The warning message will be suppressed during the warm up days.
+        //                if (!WarmupFlag) {
+        //                    ++ErrCount;
+        //                    if (ErrCount < 15) {
+        //                        ErrEnvironmentName = EnvironmentName;
+        //                        const auto CharErrOut = fmt::to_string(MaxIter);
+        //                        ShowWarningError("SolveAirLoopControllers: Maximum iterations (" + CharErrOut + ") exceeded for " +
+        //                                         PrimaryAirSystem(AirLoopNum).Name + ", at " + EnvironmentName + ", " + CurMnDy + ' ' +
+        //                                         CreateSysTimeIntervalString());
+        //                    } else {
+        //                        if (EnvironmentName != ErrEnvironmentName) {
+        //                            MaxErrCount = 0;
+        //                            ErrEnvironmentName = EnvironmentName;
+        //                        }
+        //                        ShowRecurringWarningErrorAtEnd("SolveAirLoopControllers: Exceeding Maximum iterations for " +
+        //                                                           PrimaryAirSystem(AirLoopNum).Name + " during " + EnvironmentName + " continues",
+        //                                                       MaxErrCount);
+        //                    }
+        //                }
 
-                        // It is necessary to execute this statement anytime, even if the warning message is suppressed.
-                        // To continue the simulation it must be able to goto the Exit statement
-                        break; // It will not converge this time
-                    }
+        //                // It is necessary to execute this statement anytime, even if the warning message is suppressed.
+        //                // To continue the simulation it must be able to goto the Exit statement
+        //                break; // It will not converge this time
+        //            }
 
-                    // Re-evaluate air loop components with new actuated variables
-                    ++NumCalls;
-                    // this call to SimAirLoopComponents will simulate the OA system and set the PrimaryAirSystem( AirLoopNum ).ControlConverged(
-                    // AirLoopControlNum ) flag for controllers of water coils in the OA system for controllers not in the OA system, this flag is set
-                    // above in this function
-                    SimAirLoopComponents(state, AirLoopNum, FirstHVACIteration);
-                    // pass convergence flag from OA system water coils (i.e., SolveWaterCoilController) back to this loop
-                    // for future reference, the PrimaryAirSystem().ControlConverged flag is set while managing OA system water coils.
-                    // If convergence is not achieved with OA system water coils, suspect how this flag is passed back here or why OA system coils do
-                    // not converge
-                    ControllerConvergedFlag = PrimaryAirSystem(AirLoopNum).ControlConverged(AirLoopControlNum);
-                    IsUpToDateFlag = true;
-                }
+        //            // Re-evaluate air loop components with new actuated variables
+        //            ++NumCalls;
+        //            // this call to SimAirLoopComponents will simulate the OA system and set the PrimaryAirSystem( AirLoopNum ).ControlConverged(
+        //            // AirLoopControlNum ) flag for controllers of water coils in the OA system for controllers not in the OA system, this flag is set
+        //            // above in this function
+        //            SimAirLoopComponents(state, AirLoopNum, FirstHVACIteration);
+        //            // pass convergence flag from OA system water coils (i.e., SolveWaterCoilController) back to this loop
+        //            // for future reference, the PrimaryAirSystem().ControlConverged flag is set while managing OA system water coils.
+        //            // If convergence is not achieved with OA system water coils, suspect how this flag is passed back here or why OA system coils do
+        //            // not converge
+        //            ControllerConvergedFlag = PrimaryAirSystem(AirLoopNum).ControlConverged(AirLoopControlNum);
+        //            IsUpToDateFlag = true;
+        //        }
 
-            } // End of the Convergence Iteration
+        //    } // End of the Convergence Iteration
 
-            // Update tracker for max iteration counter across all controllers on this air loops
-            IterMax = max(IterMax, Iter);
-            // Update tracker for aggregated counter of air loop inner iterations across controllers
-            // on this air loop
-            IterTot += Iter;
-
-        } // End of controller loop
+        //    // Update tracker for max iteration counter across all controllers on this air loops
+        //    IterMax = max(IterMax, Iter);
+        //    // Update tracker for aggregated counter of air loop inner iterations across controllers
+        //    // on this air loop
+        //    IterTot += Iter;
+        //
+        //} // End of controller loop
 
         // Once the controllers are converged then need to simulate the components once
         // more to ensure that they are simulated with the latest values.
@@ -3072,23 +3093,23 @@ namespace SimAirServingZones {
         }
 
         // Check that all active controllers are still convergence
-        for (int AirLoopControlNum = 1; AirLoopControlNum <= PrimaryAirSystem(AirLoopNum).NumControllers; ++AirLoopControlNum) {
+        //for (int AirLoopControlNum = 1; AirLoopControlNum <= PrimaryAirSystem(AirLoopNum).NumControllers; ++AirLoopControlNum) {
 
-            ControllerConvergedFlag = false;
+        //    ControllerConvergedFlag = true;
 
-            ManageControllers(state, PrimaryAirSystem(AirLoopNum).ControllerName(AirLoopControlNum),
-                              PrimaryAirSystem(AirLoopNum).ControllerIndex(AirLoopControlNum),
-                              FirstHVACIteration,
-                              AirLoopNum,
-                              iControllerOpEnd,
-                              ControllerConvergedFlag,
-                              IsUpToDateFlag,
-                              BypassOAController);
+        //    ManageControllers(state, PrimaryAirSystem(AirLoopNum).ControllerName(AirLoopControlNum),
+        //                      PrimaryAirSystem(AirLoopNum).ControllerIndex(AirLoopControlNum),
+        //                      FirstHVACIteration,
+        //                      AirLoopNum,
+        //                      iControllerOpEnd,
+        //                      ControllerConvergedFlag,
+        //                      IsUpToDateFlag,
+        //                      BypassOAController);
 
-            PrimaryAirSystem(AirLoopNum).ControlConverged(AirLoopControlNum) = ControllerConvergedFlag;
+        //    PrimaryAirSystem(AirLoopNum).ControlConverged(AirLoopControlNum) = ControllerConvergedFlag;
 
-            AirLoopConvergedFlag = AirLoopConvergedFlag && ControllerConvergedFlag;
-        }
+        //    AirLoopConvergedFlag = AirLoopConvergedFlag && ControllerConvergedFlag;
+        //}
     }
 
     void SolveWaterCoilController(EnergyPlusData &state, bool const FirstHVACIteration,
@@ -3179,16 +3200,16 @@ namespace SimAirServingZones {
 
         // This call to ManageControllers reinitializes the controllers actuated variables to zero
 
-        // BypassOAController is false here since we want to simulate the controller
-        ManageControllers(state, ControllerName,
-                          ControllerIndex,
-                          FirstHVACIteration,
-                          AirLoopNum,
-                          iControllerOpColdStart,
-                          ControllerConvergedFlag,
-                          IsUpToDateFlag,
-                          BypassOAController,
-                          AllowWarmRestartFlag);
+        //// BypassOAController is false here since we want to simulate the controller
+        //ManageControllers(state, ControllerName,
+        //                  ControllerIndex,
+        //                  FirstHVACIteration,
+        //                  AirLoopNum,
+        //                  iControllerOpColdStart,
+        //                  ControllerConvergedFlag,
+        //                  IsUpToDateFlag,
+        //                  BypassOAController,
+        //                  AllowWarmRestartFlag);
 
         // Detect whether the speculative warm restart feature is supported by each controller on this air loop.
         if (AirLoopCheck) {
@@ -3205,7 +3226,7 @@ namespace SimAirServingZones {
 
         // Loop over the air sys controllers until convergence or MaxIter iterations
         Iter = 0;
-        ControllerConvergedFlag = false;
+        ControllerConvergedFlag = true;
         // if the controller can be locked out by the economizer operation and the economizer is active, leave the controller inactive
         if (AirLoopCheck) {
             if (AirLoopControlInfo(AirLoopNum).EconoActive) {
@@ -3216,79 +3237,79 @@ namespace SimAirServingZones {
         }
 
         // For this controller, iterate until convergence
-        while (!ControllerConvergedFlag) {
+        //while (!ControllerConvergedFlag) {
 
-            ++Iter;
+        //    ++Iter;
 
-            ManageControllers(state, ControllerName,
-                              ControllerIndex,
-                              FirstHVACIteration,
-                              AirLoopNum,
-                              iControllerOpIterate,
-                              ControllerConvergedFlag,
-                              IsUpToDateFlag,
-                              BypassOAController);
+        //    ManageControllers(state, ControllerName,
+        //                      ControllerIndex,
+        //                      FirstHVACIteration,
+        //                      AirLoopNum,
+        //                      iControllerOpIterate,
+        //                      ControllerConvergedFlag,
+        //                      IsUpToDateFlag,
+        //                      BypassOAController);
 
-            if (AirLoopCheck) {
-                PrimaryAirSystem(AirLoopNum).ControlConverged(HVACControllers::ControllerProps(ControllerIndex).AirLoopControllerIndex) =
-                    ControllerConvergedFlag;
-            }
+        //    if (AirLoopCheck) {
+        //        PrimaryAirSystem(AirLoopNum).ControlConverged(HVACControllers::ControllerProps(ControllerIndex).AirLoopControllerIndex) =
+        //            ControllerConvergedFlag;
+        //    }
 
-            if (!ControllerConvergedFlag) {
-                // Only check abnormal termination if not yet converged
-                // The iteration counter has been exceeded.
-                if (Iter > MaxIter) {
+        //    if (!ControllerConvergedFlag) {
+        //        // Only check abnormal termination if not yet converged
+        //        // The iteration counter has been exceeded.
+        //        if (Iter > MaxIter) {
 
-                    // The warning message will be suppressed during the warm up days.
-                    if (!WarmupFlag) {
-                        ++ErrCount;
-                        if (ErrCount < 15) {
-                            ErrEnvironmentName = EnvironmentName;
-                            const auto CharErrOut = fmt::to_string(MaxIter);
-                            ShowWarningError("SolveAirLoopControllers: Maximum iterations (" + CharErrOut + ") exceeded for " +
-                                             PrimaryAirSystem(AirLoopNum).Name + ":" + ControllerName + ", at " + EnvironmentName + ", " + CurMnDy +
-                                             ' ' + CreateSysTimeIntervalString());
-                        } else {
-                            if (EnvironmentName != ErrEnvironmentName) {
-                                MaxErrCount = 0;
-                                ErrEnvironmentName = EnvironmentName;
-                            }
-                            ShowRecurringWarningErrorAtEnd("SolveAirLoopControllers: Exceeding Maximum iterations for " +
-                                                               PrimaryAirSystem(AirLoopNum).Name + " during " + EnvironmentName + " continues",
-                                                           MaxErrCount);
-                        }
-                    }
+        //            // The warning message will be suppressed during the warm up days.
+        //            if (!WarmupFlag) {
+        //                ++ErrCount;
+        //                if (ErrCount < 15) {
+        //                    ErrEnvironmentName = EnvironmentName;
+        //                    const auto CharErrOut = fmt::to_string(MaxIter);
+        //                    ShowWarningError("SolveAirLoopControllers: Maximum iterations (" + CharErrOut + ") exceeded for " +
+        //                                     PrimaryAirSystem(AirLoopNum).Name + ":" + ControllerName + ", at " + EnvironmentName + ", " + CurMnDy +
+        //                                     ' ' + CreateSysTimeIntervalString());
+        //                } else {
+        //                    if (EnvironmentName != ErrEnvironmentName) {
+        //                        MaxErrCount = 0;
+        //                        ErrEnvironmentName = EnvironmentName;
+        //                    }
+        //                    ShowRecurringWarningErrorAtEnd("SolveAirLoopControllers: Exceeding Maximum iterations for " +
+        //                                                       PrimaryAirSystem(AirLoopNum).Name + " during " + EnvironmentName + " continues",
+        //                                                   MaxErrCount);
+        //                }
+        //            }
 
-                    // It is necessary to execute this statement anytime, even if the warning message is suppressed.
-                    // To continue the simulation it must be able to goto the Exit statement
-                    break; // It will not converge this time
-                }
+        //            // It is necessary to execute this statement anytime, even if the warning message is suppressed.
+        //            // To continue the simulation it must be able to goto the Exit statement
+        //            break; // It will not converge this time
+        //        }
 
-                // Re-evaluate air loop components with new actuated variables
-                if (HXAssistedWaterCoil) {
-                    SimHXAssistedCoolingCoil(state, CompName, FirstHVACIteration, CoilOn, 0.0, CompIndex, ContFanCycCoil);
-                } else {
-                    SimulateWaterCoilComponents(state, CompName, FirstHVACIteration, CompIndex);
-                }
-                IsUpToDateFlag = true;
-            }
+        //        // Re-evaluate air loop components with new actuated variables
+        //        if (HXAssistedWaterCoil) {
+        //            SimHXAssistedCoolingCoil(state, CompName, FirstHVACIteration, CoilOn, 0.0, CompIndex, ContFanCycCoil);
+        //        } else {
+        //            SimulateWaterCoilComponents(state, CompName, FirstHVACIteration, CompIndex);
+        //        }
+        //        IsUpToDateFlag = true;
+        //    }
 
-        } // End of the Convergence Iteration
+        //} // End of the Convergence Iteration
 
         IsUpToDateFlag = true;
 
         // Check that this controller is still converged
 
-        ControllerConvergedFlag = false;
+        ControllerConvergedFlag = true;
 
-        ManageControllers(state, ControllerName,
-                          ControllerIndex,
-                          FirstHVACIteration,
-                          AirLoopNum,
-                          iControllerOpEnd,
-                          ControllerConvergedFlag,
-                          IsUpToDateFlag,
-                          BypassOAController);
+        //ManageControllers(state, ControllerName,
+        //                  ControllerIndex,
+        //                  FirstHVACIteration,
+        //                  AirLoopNum,
+        //                  iControllerOpEnd,
+        //                  ControllerConvergedFlag,
+        //                  IsUpToDateFlag,
+        //                  BypassOAController);
 
         // pass convergence of OA system water coils back to SolveAirLoopControllers via PrimaryAirSystem().ControlConverged flag
         if (AirLoopCheck) {
@@ -3457,10 +3478,12 @@ namespace SimAirServingZones {
         // std::string CompName; // Component name
         int CompType_Num; // Numeric equivalent for CompType
 
+       // SetPointManager::ManageSetPoints(state);
+
         for (BranchNum = 1; BranchNum <= PrimaryAirSystem(AirLoopNum).NumBranches; ++BranchNum) { // loop over all branches in air system
 
             UpdateBranchConnections(AirLoopNum, BranchNum, BeforeBranchSim);
-
+            UpdateBranchMixedAirSetpoints(state, AirLoopNum, BranchNum, FirstHVACIteration);
             CurBranchNum = BranchNum;
             CurDuctType = PrimaryAirSystem(AirLoopNum).Branch(BranchNum).DuctType;
 
@@ -3885,6 +3908,45 @@ namespace SimAirServingZones {
                 }
             }
         }
+    }
+
+    void UpdateBranchMixedAirSetpoints(EnergyPlusData &state, int const AirLoopNum, int const BranchNum, bool const FirstHVACIteration)
+    {
+
+        // PURPOSE OF THIS SUBROUTINE:
+
+        // Pre-simulate any fan on this branch with the current branch inlet mass flow rate.
+        auto &thisBranch(DataAirSystems::PrimaryAirSystem(AirLoopNum).Branch(BranchNum));
+
+        if (thisBranch.branchFanModelTypeEnum == DataAirSystems::fanModelTypeEnum::fanModelTypeNotYetSet) {
+            return;
+        }
+
+        // Set fan inlet node mass flow rate to match branch inlet node mass flow rate
+        if (thisBranch.branchFanInletNodeNum > 0) {
+            Real64 inletMassFlowRate = Node(thisBranch.NodeNumIn).MassFlowRate;
+            Real64 priorFanInletMassFlowRate = Node(thisBranch.branchFanInletNodeNum).MassFlowRate;
+            Node(thisBranch.branchFanInletNodeNum).MassFlowRate = Node(thisBranch.NodeNumIn).MassFlowRate;
+        }
+
+        // Simulate the fan to set the fan deltaT across it's nodes
+        switch (thisBranch.branchFanModelTypeEnum) {
+        case DataAirSystems::fanModelTypeEnum::structArrayLegacyFanModels: {
+            Fans::SimulateFanComponents(state, thisBranch.branchFanName, FirstHVACIteration, thisBranch.branchFanNum);
+            break;
+        }
+        case DataAirSystems::fanModelTypeEnum::objectVectorOOFanSystemModel: {
+            HVACFan::fanObjs[thisBranch.branchFanVecIndex]->simulate(state, _, _, _, _);
+            break;
+        }
+        case DataAirSystems::fanModelTypeEnum::fanModelTypeNotYetSet: {
+            // do nothing
+            break;
+        }
+        } // end switch
+
+        // Then update (all) mixed air setpoint managers (shouldn't cause any side effects on other airloops)
+        SetPointManager::ManageMixedAirSetPoints(state);
     }
 
     void ResolveSysFlow(int const SysNum, // the primary air system number

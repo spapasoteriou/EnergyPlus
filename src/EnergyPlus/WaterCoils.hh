@@ -118,28 +118,18 @@ namespace WaterCoils {
     extern bool GetWaterCoilsInputFlag;       // Flag set to make sure you get input once
     extern Array1D_bool CheckEquipName;
 
-    // Subroutine Specifications for the Module
-    // Driver/Manager Routines
-
-    // Get Input routines for module
-
-    // Initialization routines for module
-
-    // Algorithms for the module
-
-    // Update routine to check convergence and update nodes
-
-    // Reporting routines for module
-
-    // Other routines
-
-    // Types
+    enum class isHeatOrCool : int
+    {
+        None = 0,
+        Heating,
+        Cooling
+    };
 
     struct WaterCoilEquipConditions
     {
         // Members
         std::string Name;            // Name of the WaterCoil
-        std::string WaterCoilTypeA;  // Type of WaterCoil ie. Heating or Cooling
+        isHeatOrCool WaterCoilTypeA;  // Type of WaterCoil ie. Heating or Cooling
         std::string WaterCoilModelA; // Type of WaterCoil ie. Simple, Detailed, etc.
         int WaterCoilType;           // Type of WaterCoil ie. Heating or Cooling
         int WaterCoilModel;          // Type of WaterCoil ie. Simple, Detailed, etc.
@@ -279,7 +269,7 @@ namespace WaterCoils {
 
         // Default Constructor
         WaterCoilEquipConditions()
-            : WaterCoilType(0), WaterCoilModel(0), WaterCoilType_Num(0), SchedPtr(0), RequestingAutoSize(false), InletAirMassFlowRate(0.0),
+            : WaterCoilType(0), WaterCoilTypeA(isHeatOrCool::None), WaterCoilModel(0), WaterCoilType_Num(0), SchedPtr(0), RequestingAutoSize(false), InletAirMassFlowRate(0.0),
               OutletAirMassFlowRate(0.0), InletAirTemp(0.0), OutletAirTemp(0.0), InletAirHumRat(0.0), OutletAirHumRat(0.0), InletAirEnthalpy(0.0),
               OutletAirEnthalpy(0.0), TotWaterCoilLoad(0.0), SenWaterCoilLoad(0.0), TotWaterHeatingCoilEnergy(0.0), TotWaterCoolingCoilEnergy(0.0),
               SenWaterCoolingCoilEnergy(0.0), DesWaterHeatingCoilRate(0.0), TotWaterHeatingCoilRate(0.0), DesWaterCoolingCoilRate(0.0),
@@ -304,6 +294,9 @@ namespace WaterCoils {
               ControllerIndex(0), reportCoilFinalSizes(true), AirLoopDOASFlag(false)
         {
         }
+
+        void ControlWaterCoil(EnergyPlusData& state, int const WaterCoilNum, bool const FirstHVACIteration,
+            int const FanOpMode=DataHVACGlobals::ContFanCycCoil, Real64 const PLR=1.0);
     };
 
     struct WaterCoilNumericFieldData
@@ -583,15 +576,15 @@ namespace WaterCoils {
                                 bool &ErrorsFound            // set to true if problem
     );
 
-    void UpdateWaterToAirCoilPlantConnection(int const CoilTypeNum,
-                                             std::string const &CoilName,
-                                             int const EquipFlowCtrl, // Flow control mode for the equipment
-                                             int const LoopNum,       // Plant loop index for where called from
-                                             int const LoopSide,      // Plant loop side index for where called from
-                                             int &CompIndex,          // Chiller number pointer
-                                             bool const FirstHVACIteration,
-                                             bool &InitLoopEquip // If not zero, calculate the max load for operating conditions
-    );
+    //void UpdateWaterToAirCoilPlantConnection(int const CoilTypeNum,
+    //                                         std::string const &CoilName,
+    //                                         int const EquipFlowCtrl, // Flow control mode for the equipment
+    //                                         int const LoopNum,       // Plant loop index for where called from
+    //                                         int const LoopSide,      // Plant loop side index for where called from
+    //                                         int &CompIndex,          // Chiller number pointer
+    //                                         bool const FirstHVACIteration,
+    //                                         bool &InitLoopEquip // If not zero, calculate the max load for operating conditions
+    //);
 
     int GetWaterCoilAvailScheduleIndex(std::string const &CoilType, // must match coil types in this module
                                        std::string const &CoilName, // must match coil names for the coil type
@@ -614,7 +607,10 @@ namespace WaterCoils {
                                     Real64 &DesCoilInletWaterTempUsed // estimated coil design inlet water temperature
     );
 
-    // End of Coil Utility subroutines
+    Real64 CalcWaterCoilTempResidual(EnergyPlusData& state, Real64 CWFlow,       // water mass flow rate [kg/s]
+        std::vector<Real64> const& Par // Function parameters
+    );
+        // End of Coil Utility subroutines
     // *****************************************************************************
 
 } // namespace WaterCoils

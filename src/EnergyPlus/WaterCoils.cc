@@ -86,6 +86,7 @@
 #include <EnergyPlus/ScheduleManager.hh>
 #include <EnergyPlus/SetPointManager.hh>
 #include <EnergyPlus/SimAirServingZones.hh>
+#include <EnergyPlus/TempSolveRoot.hh>
 #include <EnergyPlus/UtilityRoutines.hh>
 #include <EnergyPlus/WaterCoils.hh>
 #include <EnergyPlus/WaterManager.hh>
@@ -300,6 +301,23 @@ namespace WaterCoils {
             }
         }
 
+        if (!WarmupFlag && (CoilNum == 5)) {
+            std::string firstHVAC = "False";
+            if (FirstHVACIteration) firstHVAC = "True";
+            std::string humRatOverride = "False";
+            if (HVACControllers::ControllerProps(WaterCoil(CoilNum).ControllerIndex).HumRatCtrlOverride) humRatOverride = "True";
+            ShowContinueErrorTimeStamp("SimulateWaterCoilComponents Before InitWaterCoil: Coil=" + WaterCoil(CoilNum).Name);
+            ShowContinueError("FirstHVACIteration=" + firstHVAC + ", HumRatOverride=" + humRatOverride +
+                ", Coil Inlet Node Air Mass Flow Rate=" + General::RoundSigDigits(DataLoopNode::Node(WaterCoil(CoilNum).AirInletNodeNum).MassFlowRate, 5) +
+                ", Coil Outlet Node Air Mass Flow Rate=" + General::RoundSigDigits(DataLoopNode::Node(WaterCoil(CoilNum).AirOutletNodeNum).MassFlowRate, 5) +
+                ", Coil Water Mass Flow Rate =" + General::RoundSigDigits(DataLoopNode::Node(WaterCoil(CoilNum).WaterInletNodeNum).MassFlowRate, 5));
+            ShowContinueError(
+                "Outlet Temp=" + General::RoundSigDigits(DataLoopNode::Node(WaterCoil(CoilNum).AirOutletNodeNum).Temp, 2) +
+                ", Temp Setpoint =" + General::RoundSigDigits(DataLoopNode::Node(WaterCoil(CoilNum).AirOutletNodeNum).TempSetPoint, 2) +
+                ", Outlet HumRat=" + General::RoundSigDigits(DataLoopNode::Node(WaterCoil(CoilNum).AirOutletNodeNum).HumRat, 6) +
+                ", HumRat Setpoint =" + General::RoundSigDigits(DataLoopNode::Node(WaterCoil(CoilNum).AirOutletNodeNum).HumRatMax, 6));
+        }
+
         // With the correct CoilNum Initialize
         InitWaterCoil(state, OutputFiles::getSingleton(), CoilNum, FirstHVACIteration); // Initialize all WaterCoil related parameters
 
@@ -314,24 +332,55 @@ namespace WaterCoils {
             PartLoadFrac = 1.0;
         }
 
-        // Calculate the Correct WaterCoil Model with the current CoilNum
-        if (WaterCoil(CoilNum).WaterCoilType_Num == WaterCoil_DetFlatFinCooling) {
-            CalcDetailFlatFinCoolingCoil(CoilNum, SimCalc, OpMode, PartLoadFrac);
-            if (present(QActual)) QActual = WaterCoil(CoilNum).SenWaterCoolingCoilRate;
-        } else if (WaterCoil(CoilNum).WaterCoilType_Num == WaterCoil_Cooling) {
-            CoolingCoil(CoilNum, FirstHVACIteration, SimCalc, OpMode, PartLoadFrac);
-            if (present(QActual)) QActual = WaterCoil(CoilNum).SenWaterCoolingCoilRate;
-        }
+        if (WaterCoil(CoilNum).ControllerIndex > 0) {
+            WaterCoil(CoilNum).ControlWaterCoil(state, CoilNum, FirstHVACIteration, OpMode, PartLoadFrac);
+            if (present(QActual)) {
+                if (WaterCoil(CoilNum).WaterCoilType_Num == WaterCoil_DetFlatFinCooling) {
+                    QActual = WaterCoil(CoilNum).SenWaterCoolingCoilRate;
+                } else if (WaterCoil(CoilNum).WaterCoilType_Num == WaterCoil_Cooling) {
+                    QActual = WaterCoil(CoilNum).SenWaterCoolingCoilRate;
+                } else if (WaterCoil(CoilNum).WaterCoilType_Num == WaterCoil_SimpleHeating) {
+                    QActual = WaterCoil(CoilNum).TotWaterHeatingCoilRate;
+                }
+            }
+        } else {
+            // Calculate the Correct WaterCoil Model with the current CoilNum
+            if (WaterCoil(CoilNum).WaterCoilType_Num == WaterCoil_DetFlatFinCooling) {
+                CalcDetailFlatFinCoolingCoil(CoilNum, SimCalc, OpMode, PartLoadFrac);
+                if (present(QActual)) QActual = WaterCoil(CoilNum).SenWaterCoolingCoilRate;
+            }
+            else if (WaterCoil(CoilNum).WaterCoilType_Num == WaterCoil_Cooling) {
+                CoolingCoil(CoilNum, FirstHVACIteration, SimCalc, OpMode, PartLoadFrac);
+                if (present(QActual)) QActual = WaterCoil(CoilNum).SenWaterCoolingCoilRate;
+            }
 
-        if (WaterCoil(CoilNum).WaterCoilType_Num == WaterCoil_SimpleHeating) {
-            CalcSimpleHeatingCoil(CoilNum, OpMode, PartLoadFrac, SimCalc);
-            if (present(QActual)) QActual = WaterCoil(CoilNum).TotWaterHeatingCoilRate;
+            if (WaterCoil(CoilNum).WaterCoilType_Num == WaterCoil_SimpleHeating) {
+                CalcSimpleHeatingCoil(CoilNum, OpMode, PartLoadFrac, SimCalc);
+                if (present(QActual)) QActual = WaterCoil(CoilNum).TotWaterHeatingCoilRate;
+            }
         }
 
         // Update the current WaterCoil to the outlet nodes
         UpdateWaterCoil(CoilNum);
 
         // Report the current WaterCoil
+        if (!WarmupFlag && (CoilNum == 5)) {
+            std::string firstHVAC = "False";
+            if (FirstHVACIteration) firstHVAC = "True";
+            std::string humRatOverride = "False";
+            if (HVACControllers::ControllerProps(WaterCoil(CoilNum).ControllerIndex).HumRatCtrlOverride) humRatOverride = "True";
+            ShowContinueErrorTimeStamp("SimulateWaterCoilComponents After UpdateWaterCoil: Coil=" + WaterCoil(CoilNum).Name);
+            ShowContinueError("FirstHVACIteration=" + firstHVAC + ", HumRatOverride="+ humRatOverride +
+                ", Coil Inlet Node Air Mass Flow Rate=" + General::RoundSigDigits(DataLoopNode::Node(WaterCoil(CoilNum).AirInletNodeNum).MassFlowRate, 8) +
+                ", Coil Outlet Node Air Mass Flow Rate=" + General::RoundSigDigits(DataLoopNode::Node(WaterCoil(CoilNum).AirOutletNodeNum).MassFlowRate, 8) +
+                ", Coil Water Mass Flow Rate =" + General::RoundSigDigits(DataLoopNode::Node(WaterCoil(CoilNum).WaterInletNodeNum).MassFlowRate,8));
+            ShowContinueError(
+                "Outlet Temp=" + General::RoundSigDigits(DataLoopNode::Node(WaterCoil(CoilNum).AirOutletNodeNum).Temp, 5) +
+                ", Temp Setpoint =" + General::RoundSigDigits(DataLoopNode::Node(WaterCoil(CoilNum).AirOutletNodeNum).TempSetPoint, 5) +
+                ", Outlet HumRat=" + General::RoundSigDigits(DataLoopNode::Node(WaterCoil(CoilNum).AirOutletNodeNum).HumRat, 6) +
+                ", HumRat Setpoint =" + General::RoundSigDigits(DataLoopNode::Node(WaterCoil(CoilNum).AirOutletNodeNum).HumRatMax, 6));
+        }
+
         ReportWaterCoil(CoilNum);
     }
 
@@ -461,7 +510,7 @@ namespace WaterCoils {
                 }
             }
 
-            WaterCoil(CoilNum).WaterCoilTypeA = "Heating";
+            WaterCoil(CoilNum).WaterCoilTypeA = isHeatOrCool::Heating;
             WaterCoil(CoilNum).WaterCoilType = CoilType_Heating; // 'Heating'
             WaterCoil(CoilNum).WaterCoilModelA = "SIMPLE";
             WaterCoil(CoilNum).WaterCoilModel = CoilModel_Simple; // 'SIMPLE'
@@ -608,7 +657,7 @@ namespace WaterCoils {
                 }
             }
 
-            WaterCoil(CoilNum).WaterCoilTypeA = "Cooling";
+            WaterCoil(CoilNum).WaterCoilTypeA = isHeatOrCool::Cooling;
             WaterCoil(CoilNum).WaterCoilType = CoilType_Cooling; // 'Cooling'
             WaterCoil(CoilNum).WaterCoilModelA = "DETAILED FLAT FIN";
             WaterCoil(CoilNum).WaterCoilModel = CoilModel_Detailed; // 'DETAILED FLAT FIN'
@@ -789,7 +838,7 @@ namespace WaterCoils {
                 }
             }
 
-            WaterCoil(CoilNum).WaterCoilTypeA = "Cooling";
+            WaterCoil(CoilNum).WaterCoilTypeA = isHeatOrCool::Cooling;
             WaterCoil(CoilNum).WaterCoilType = CoilType_Cooling; // 'Cooling'
             WaterCoil(CoilNum).WaterCoilModelA = "Cooling";
             WaterCoil(CoilNum).WaterCoilModel = CoilModel_Cooling; // 'Cooling'
@@ -6488,98 +6537,98 @@ namespace WaterCoils {
         return Capacity;
     }
 
-    void UpdateWaterToAirCoilPlantConnection(int const CoilTypeNum,
-                                             std::string const &CoilName,
-                                             int const EP_UNUSED(EquipFlowCtrl), // Flow control mode for the equipment
-                                             int const LoopNum,                  // Plant loop index for where called from
-                                             int const LoopSide,                 // Plant loop side index for where called from
-                                             int &CompIndex,                     // Chiller number pointer
-                                             bool const EP_UNUSED(FirstHVACIteration),
-                                             bool &InitLoopEquip // If not zero, calculate the max load for operating conditions
-    )
-    {
+    //void UpdateWaterToAirCoilPlantConnection(int const CoilTypeNum,
+    //                                         std::string const &CoilName,
+    //                                         int const EP_UNUSED(EquipFlowCtrl), // Flow control mode for the equipment
+    //                                         int const LoopNum,                  // Plant loop index for where called from
+    //                                         int const LoopSide,                 // Plant loop side index for where called from
+    //                                         int &CompIndex,                     // Chiller number pointer
+    //                                         bool const EP_UNUSED(FirstHVACIteration),
+    //                                         bool &InitLoopEquip // If not zero, calculate the max load for operating conditions
+    //)
+    //{
 
-        // SUBROUTINE INFORMATION:
-        //       AUTHOR         B. Griffith
-        //       DATE WRITTEN   February 2010
-        //       MODIFIED       na
-        //       RE-ENGINEERED  na
+    //    // SUBROUTINE INFORMATION:
+    //    //       AUTHOR         B. Griffith
+    //    //       DATE WRITTEN   February 2010
+    //    //       MODIFIED       na
+    //    //       RE-ENGINEERED  na
 
-        // PURPOSE OF THIS SUBROUTINE:
-        // update sim routine called from plant
+    //    // PURPOSE OF THIS SUBROUTINE:
+    //    // update sim routine called from plant
 
-        // Using/Aliasing
-        using DataGlobals::KickOffSimulation;
-        using DataHVACGlobals::SimAirLoopsFlag;
-        using DataHVACGlobals::SimZoneEquipmentFlag;
-        using DataLoopNode::Node;
-        using DataPlant::ccSimPlantEquipTypes;
-        using DataPlant::PlantLoop;
-        using General::TrimSigDigits;
+    //    // Using/Aliasing
+    //    using DataGlobals::KickOffSimulation;
+    //    using DataHVACGlobals::SimAirLoopsFlag;
+    //    using DataHVACGlobals::SimZoneEquipmentFlag;
+    //    using DataLoopNode::Node;
+    //    using DataPlant::ccSimPlantEquipTypes;
+    //    using DataPlant::PlantLoop;
+    //    using General::TrimSigDigits;
 
-        // SUBROUTINE LOCAL VARIABLE DECLARATIONS:
+    //    // SUBROUTINE LOCAL VARIABLE DECLARATIONS:
 
-        int CoilNum;
-        static bool DidAnythingChange(false); // set to true if conditions changed
-        int InletNodeNum;
-        int OutletNodeNum;
+    //    int CoilNum;
+    //    static bool DidAnythingChange(false); // set to true if conditions changed
+    //    int InletNodeNum;
+    //    int OutletNodeNum;
 
-        // Find the correct water coil
-        if (CompIndex == 0) {
-            CoilNum = UtilityRoutines::FindItemInList(CoilName, WaterCoil);
-            if (CoilNum == 0) {
-                ShowFatalError("UpdateWaterToAirCoilPlantConnection: Specified Coil not one of Valid water coils=" + CoilName);
-            }
-            CompIndex = CoilNum;
-        } else {
-            CoilNum = CompIndex;
-            if (CoilNum > NumWaterCoils || CoilNum < 1) {
-                ShowFatalError("UpdateWaterToAirCoilPlantConnection:  Invalid CompIndex passed=" + TrimSigDigits(CoilNum) +
-                               ", Number of Coils=" + TrimSigDigits(NumWaterCoils) + ", Entered Coil name=" + CoilName);
-            }
-            if (KickOffSimulation) {
-                if (CoilName != WaterCoil(CoilNum).Name) {
-                    ShowFatalError("UpdateWaterToAirCoilPlantConnection: Invalid CompIndex passed=" + TrimSigDigits(CoilNum) +
-                                   ", Coil name=" + CoilName + ", stored Coil Name for that index=" + WaterCoil(CoilNum).Name);
-                }
-                if (CoilTypeNum != WaterCoil(CoilNum).WaterCoilType_Num) {
-                    ShowFatalError("UpdateWaterToAirCoilPlantConnection: Invalid CompIndex passed=" + TrimSigDigits(CoilNum) +
-                                   ", Coil name=" + CoilName + ", stored Coil Name for that index=" + ccSimPlantEquipTypes(CoilTypeNum));
-                }
-            }
-        }
+    //    // Find the correct water coil
+    //    if (CompIndex == 0) {
+    //        CoilNum = UtilityRoutines::FindItemInList(CoilName, WaterCoil);
+    //        if (CoilNum == 0) {
+    //            ShowFatalError("UpdateWaterToAirCoilPlantConnection: Specified Coil not one of Valid water coils=" + CoilName);
+    //        }
+    //        CompIndex = CoilNum;
+    //    } else {
+    //        CoilNum = CompIndex;
+    //        if (CoilNum > NumWaterCoils || CoilNum < 1) {
+    //            ShowFatalError("UpdateWaterToAirCoilPlantConnection:  Invalid CompIndex passed=" + TrimSigDigits(CoilNum) +
+    //                           ", Number of Coils=" + TrimSigDigits(NumWaterCoils) + ", Entered Coil name=" + CoilName);
+    //        }
+    //        if (KickOffSimulation) {
+    //            if (CoilName != WaterCoil(CoilNum).Name) {
+    //                ShowFatalError("UpdateWaterToAirCoilPlantConnection: Invalid CompIndex passed=" + TrimSigDigits(CoilNum) +
+    //                               ", Coil name=" + CoilName + ", stored Coil Name for that index=" + WaterCoil(CoilNum).Name);
+    //            }
+    //            if (CoilTypeNum != WaterCoil(CoilNum).WaterCoilType_Num) {
+    //                ShowFatalError("UpdateWaterToAirCoilPlantConnection: Invalid CompIndex passed=" + TrimSigDigits(CoilNum) +
+    //                               ", Coil name=" + CoilName + ", stored Coil Name for that index=" + ccSimPlantEquipTypes(CoilTypeNum));
+    //            }
+    //        }
+    //    }
 
-        if (InitLoopEquip) {
-            return;
-        }
+    //    if (InitLoopEquip) {
+    //        return;
+    //    }
 
-        DidAnythingChange = false;
+    //    DidAnythingChange = false;
 
-        InletNodeNum = WaterCoil(CoilNum).WaterInletNodeNum;
-        OutletNodeNum = WaterCoil(CoilNum).WaterOutletNodeNum;
+    //    InletNodeNum = WaterCoil(CoilNum).WaterInletNodeNum;
+    //    OutletNodeNum = WaterCoil(CoilNum).WaterOutletNodeNum;
 
-        if (Node(InletNodeNum).Temp != WaterCoil(CoilNum).InletWaterTemp) DidAnythingChange = true;
+    //    if (Node(InletNodeNum).Temp != WaterCoil(CoilNum).InletWaterTemp) DidAnythingChange = true;
 
-        if (Node(OutletNodeNum).Temp != WaterCoil(CoilNum).OutletWaterTemp) DidAnythingChange = true;
+    //    if (Node(OutletNodeNum).Temp != WaterCoil(CoilNum).OutletWaterTemp) DidAnythingChange = true;
 
-        if (Node(InletNodeNum).MassFlowRate != WaterCoil(CoilNum).OutletWaterMassFlowRate) {
-            DidAnythingChange = true;
-            Node(OutletNodeNum).MassFlowRate = Node(InletNodeNum).MassFlowRate; // make sure flows are consistent
-        }
+    //    if (Node(InletNodeNum).MassFlowRate != WaterCoil(CoilNum).OutletWaterMassFlowRate) {
+    //        DidAnythingChange = true;
+    //        Node(OutletNodeNum).MassFlowRate = Node(InletNodeNum).MassFlowRate; // make sure flows are consistent
+    //    }
 
-        if (Node(OutletNodeNum).MassFlowRate != WaterCoil(CoilNum).OutletWaterMassFlowRate) DidAnythingChange = true;
+    //    if (Node(OutletNodeNum).MassFlowRate != WaterCoil(CoilNum).OutletWaterMassFlowRate) DidAnythingChange = true;
 
-        if (DidAnythingChange) {
-            // set sim flag for this loop
-            PlantLoop(LoopNum).LoopSide(LoopSide).SimLoopSideNeeded = true;
-            // set sim flags for air side users of coils
+    //    if (DidAnythingChange) {
+    //        // set sim flag for this loop
+    //        PlantLoop(LoopNum).LoopSide(LoopSide).SimLoopSideNeeded = true;
+    //        // set sim flags for air side users of coils
 
-            SimAirLoopsFlag = true;
-            SimZoneEquipmentFlag = true;
-        } else { // nothing changed so turn off sim flag
-            PlantLoop(LoopNum).LoopSide(LoopSide).SimLoopSideNeeded = false;
-        }
-    }
+    //        SimAirLoopsFlag = true;
+    //        SimZoneEquipmentFlag = true;
+    //    } else { // nothing changed so turn off sim flag
+    //        PlantLoop(LoopNum).LoopSide(LoopSide).SimLoopSideNeeded = false;
+    //    }
+    //}
 
     int GetWaterCoilAvailScheduleIndex(std::string const &CoilType, // must match coil types in this module
                                        std::string const &CoilName, // must match coil names for the coil type
@@ -6794,6 +6843,271 @@ namespace WaterCoils {
             // water coil should not be sized at coil water inlet temperature lower than 46.0C (for convergence problem in Regulafalsi)
             DesCoilInletWaterTempUsed = max(DesCoilInletWaterTempUsed, DesCoilHWInletTempMin);
         }
+    }
+
+    void WaterCoilEquipConditions::ControlWaterCoil(EnergyPlusData& state, int const WaterCoilNum, bool const FirstHVACIteration,
+        int const FanOpMode, Real64 const PLR)
+    {
+        auto& thisController(HVACControllers::ControllerProps(this->ControllerIndex));
+        thisController.HumRatCtrlOverride = false;
+        int setpointNode = thisController.SensedNode;
+        Real64 const offSet = thisController.Offset;
+        Real64 const humRatOverrideOffSet = 1.0e-4;
+        Real64 temperatureSetpoint = 0.0;
+        Real64 humRatSetpoint = 0.0;
+        Real64 inletTemp = 0.0;
+        Real64 inletHumRat = 0.0;
+        if ((thisController.ControlVar == HVACControllers::iTemperature) ||
+            (thisController.ControlVar == HVACControllers::iTemperatureAndHumidityRatio)) {
+            inletTemp = Node(this->AirInletNodeNum).Temp;
+            if (setpointNode == this->AirOutletNodeNum) {
+                temperatureSetpoint = Node(setpointNode).TempSetPoint;
+            }
+            else {
+                temperatureSetpoint = Node(setpointNode).TempSetPoint - (Node(setpointNode).Temp - Node(this->AirOutletNodeNum).Temp);
+            }
+        }
+        if ((thisController.ControlVar == HVACControllers::iHumidityRatio) ||
+            (thisController.ControlVar == HVACControllers::iTemperatureAndHumidityRatio)) {
+            inletHumRat = Node(this->AirInletNodeNum).HumRat;
+            if (setpointNode == this->AirOutletNodeNum) {
+                humRatSetpoint = Node(setpointNode).HumRatMax;
+            }
+            else {
+                humRatSetpoint = Node(setpointNode).HumRatMax - (Node(setpointNode).HumRat - Node(this->AirOutletNodeNum).HumRat);
+            }
+        }
+
+        // Test if inlet node already meets or exceeds setpoint
+        bool tempSetpointMet = false;
+        bool humRatSetpointMet = false;
+        bool waterTempInadequate = false;
+        if (this->WaterCoilTypeA == isHeatOrCool::Cooling) {
+            if (thisController.ControlVar == HVACControllers::iTemperature) {
+                if (inletTemp <= (temperatureSetpoint + offSet)) {
+                    tempSetpointMet = true;
+                    humRatSetpointMet = true;
+                }
+            } else if (thisController.ControlVar == HVACControllers::iHumidityRatio) {
+                if (inletHumRat <= (humRatSetpoint + offSet)) {
+                    humRatSetpointMet = true;
+                    tempSetpointMet = true;
+                }
+            } else if (thisController.ControlVar == HVACControllers::iTemperatureAndHumidityRatio) {
+                if (inletTemp <= (temperatureSetpoint + offSet)) {
+                    tempSetpointMet = true;
+                }
+                if (inletHumRat <= (humRatSetpoint + humRatOverrideOffSet)) {
+                    humRatSetpointMet = true;
+                }
+            }
+            // Check if water temperature can achieve setpoint
+            if (Node(thisController.ActuatedNode).Temp > inletTemp) {
+                waterTempInadequate = true;
+            }
+        } else if(this->WaterCoilTypeA == isHeatOrCool::Heating){
+            if (inletTemp >= (temperatureSetpoint - offSet)) {
+                tempSetpointMet = true;
+                humRatSetpointMet = true;
+            }
+            // Check if water temperature can achieve setpoint
+            if (Node(thisController.ActuatedNode).Temp < inletTemp) {
+                waterTempInadequate = true;
+            }
+        }
+
+        if ((tempSetpointMet && humRatSetpointMet) || waterTempInadequate) {
+            // Setpoint is met or water temp is useless, so set flow to minimum, calculate and return
+            Real64 waterMassFlowRate = thisController.MinActuated;
+            PlantUtilities::SetActuatedBranchFlowRate(waterMassFlowRate,
+                thisController.ActuatedNode,
+                thisController.ActuatedNodePlantLoopNum,
+                thisController.ActuatedNodePlantLoopSide,
+                thisController.ActuatedNodePlantLoopBranchNum,
+                false);
+
+            this->InletWaterMassFlowRate = waterMassFlowRate;
+            //InitWaterCoil(state, OutputFiles::getSingleton(), WaterCoilNum, FirstHVACIteration);
+            if (this->WaterCoilType == WaterCoil_DetFlatFinCooling) {
+                CalcDetailFlatFinCoolingCoil(WaterCoilNum, SimCalc, FanOpMode, PLR);
+            }
+            else if (this->WaterCoilType_Num == WaterCoil_Cooling) {
+                CoolingCoil(WaterCoilNum, FirstHVACIteration, SimCalc, FanOpMode, PLR);
+            }
+            else if (this->WaterCoilType_Num == WaterCoil_SimpleHeating) {
+                CalcSimpleHeatingCoil(WaterCoilNum, FanOpMode, PLR, SimCalc);
+            }
+            return;
+        }
+
+        std::vector<Real64> Par(5);
+        //   Parameter description for CalcWaterCoilTempResidual:
+        //       Par(1)  = REAL(CoilNum,r64)  ! Index to water coil
+        //       Par(2)  = 0.0 or 1.0         ! FirstHVACIteration FLAG, IF 1.0 then TRUE, if 0.0 then FALSE
+        //       Par(3)  = REAL               ! Temperature setpoint
+        //       Par(4)  = REAL(OpMode,r64)   ! Fan control, IF 1.0 then cycling fan, if 0.0 then continuous fan
+        //       Par(5)  = REAL               ! Part Load Ratio
+        Par[0] = double(WaterCoilNum);
+        Par[1] = 0.0; // FLAG, IF 1.0 then FirstHVACIteration equals TRUE, if 0.0 then FirstHVACIteration equals false
+        if (FirstHVACIteration) Par[1] = 1.0;
+        Par[3] = double(FanOpMode);
+        Par[4] = double(PLR);
+        int MaxIterations = 50;
+        int ExitFlag1 = 0.0;
+        int ExitFlag2 = 0.0;
+        Real64 MinFlow = thisController.MinActuated;
+        Real64 MaxFlow = thisController.MaxActuated;
+        Real64 resultMassFlow1 = 0.0;
+        Real64 resultMassFlow2 = 0.0;
+        Real64 finalResultMassFlow = 0.0;
+        //if (!WarmupFlag && (WaterCoilNum == 5)) ShowContinueError("ControlWaterCoil Before Temp Control: coil->InletAirMassFlowRate=" + General::RoundSigDigits(this->InletAirMassFlowRate, 5) +
+        //    ", coil->OutletAirMassFlowRate = " + General::RoundSigDigits(this->OutletAirMassFlowRate, 5));
+
+        // First control on temperature or humrat alone
+        if ((thisController.ControlVar == HVACControllers::iHumidityRatio) && !humRatSetpointMet) {
+            Par[2] = humRatSetpoint;
+            TempSolveRoot::SolveRoot(state, offSet, MaxIterations, ExitFlag1, resultMassFlow1, CalcWaterCoilTempResidual, MinFlow, MaxFlow, Par);
+        } else if (!tempSetpointMet) {
+            Par[2] = temperatureSetpoint;
+            TempSolveRoot::SolveRoot(state, offSet, MaxIterations, ExitFlag1, resultMassFlow1, CalcWaterCoilTempResidual, MinFlow, MaxFlow, Par);
+            //if (!WarmupFlag && (WaterCoilNum == 5)) ShowContinueError("ControlWaterCoil after Temperature Root: ExitFlag=" + General::RoundSigDigits(ExitFlag1));
+        }
+
+        if (ExitFlag1 == -2) {
+            // Min and max flow both exceed setpoint, use maxflow and exit
+            finalResultMassFlow = MaxFlow;
+        } else {
+            finalResultMassFlow = resultMassFlow1;
+
+            if (!WarmupFlag && (WaterCoilNum == 5)) ShowContinueError("ControlWaterCoil Before HumRat Override: coil->InletAirMassFlowRate=" + General::RoundSigDigits(this->InletAirMassFlowRate, 5) +
+                ", coil->OutletAirMassFlowRate = " + General::RoundSigDigits(this->OutletAirMassFlowRate, 5));
+            // If needed, control on humrat after temperature
+            if (thisController.ControlVar == HVACControllers::iTemperatureAndHumidityRatio) {
+                PlantUtilities::SetActuatedBranchFlowRate(finalResultMassFlow,
+                    thisController.ActuatedNode,
+                    thisController.ActuatedNodePlantLoopNum,
+                    thisController.ActuatedNodePlantLoopSide,
+                    thisController.ActuatedNodePlantLoopBranchNum,
+                    false);
+
+                this->InletWaterMassFlowRate = finalResultMassFlow;
+                // One final Calculate (mainly to make sure the air mass flow rate gets passed along in case the coil did not recalculate)
+                if (this->WaterCoilType == WaterCoil_DetFlatFinCooling) {
+                    CalcDetailFlatFinCoolingCoil(WaterCoilNum, SimCalc, FanOpMode, PLR);
+                }
+                else if (this->WaterCoilType_Num == WaterCoil_Cooling) {
+                    CoolingCoil(WaterCoilNum, FirstHVACIteration, SimCalc, FanOpMode, PLR);
+                }
+                if (this->OutletAirHumRat > (humRatSetpoint + humRatOverrideOffSet)) {
+                    thisController.HumRatCtrlOverride = true;
+                    Par[2] = humRatSetpoint;
+                    TempSolveRoot::SolveRoot(state, humRatOverrideOffSet, MaxIterations, ExitFlag2, resultMassFlow2, CalcWaterCoilTempResidual, resultMassFlow1, MaxFlow, Par);
+                    if (!WarmupFlag && (WaterCoilNum == 5)) ShowContinueError("ControlWaterCoil after HumRat Root: ExitFlag=" + General::RoundSigDigits(ExitFlag2) +
+                        ", HumRatSetpoint=" + General::RoundSigDigits(humRatSetpoint, 5) + ", OutletHumRat=" + General::RoundSigDigits(this->OutletAirHumRat, 5));
+                    if (ExitFlag2 == -2) {
+                        // Min and max flow both exceed setpoint, use maxflow
+                        finalResultMassFlow = MaxFlow;
+                    }
+                    else {
+                        finalResultMassFlow = resultMassFlow2;
+                    }
+                }
+            }
+        }
+
+        
+        PlantUtilities::SetActuatedBranchFlowRate(finalResultMassFlow,
+            thisController.ActuatedNode,
+            thisController.ActuatedNodePlantLoopNum,
+            thisController.ActuatedNodePlantLoopSide,
+            thisController.ActuatedNodePlantLoopBranchNum,
+            false);
+
+        this->InletWaterMassFlowRate = finalResultMassFlow;
+        // One final Calculate (mainly to make sure the air mass flow rate gets passed along in case the coil did not recalculate)
+        if (this->WaterCoilType == WaterCoil_DetFlatFinCooling) {
+            CalcDetailFlatFinCoolingCoil(WaterCoilNum, SimCalc, FanOpMode, PLR);
+        } else if (this->WaterCoilType_Num == WaterCoil_Cooling) {
+            CoolingCoil(WaterCoilNum, FirstHVACIteration, SimCalc, FanOpMode, PLR);
+        } else if (this->WaterCoilType_Num == WaterCoil_SimpleHeating) {
+            CalcSimpleHeatingCoil(WaterCoilNum, FanOpMode, PLR, SimCalc);
+        }
+
+        if (!WarmupFlag && (WaterCoilNum == 5)) ShowContinueError("ControlWaterCoil Exit: coil->InletAirMassFlowRate=" + General::RoundSigDigits(this->InletAirMassFlowRate, 5) +
+            ", coil->OutletAirMassFlowRate = " + General::RoundSigDigits(this->OutletAirMassFlowRate, 5) +
+            ", coil->InletWaterMassFlowRate = " + General::RoundSigDigits(this->InletWaterMassFlowRate, 5));
+    }
+
+    Real64 CalcWaterCoilTempResidual(EnergyPlusData& state, Real64 WaterMassFlowRate,       // water mass flow rate [kg/s]
+        std::vector<Real64> const& Par // Function parameters
+    )
+    {
+
+        // PURPOSE OF THIS SUBROUTINE:
+        // To calculate the Temperature control residual for a water coil
+
+        // METHODOLOGY EMPLOYED:
+        // Use SolveRoot to CALL this Function to converge on a solution
+
+        Real64 residuum = 0.0; // Result (force to 0)
+
+        // SUBROUTINE ARGUMENT DEFINITIONS:
+
+        //   Parameter description:
+        //       Par(1)  = REAL(CoilNum,r64)  ! Index to water coil
+        //       Par(2)  = 0.0 or 1.0         ! FirstHVACIteration FLAG, IF 1.0 then TRUE, if 0.0 then FALSE
+        //       Par(3)  = REAL               ! Temperature setpoint
+        //       Par(4)  = REAL(OpMode,r64)   ! Fan control, IF 1.0 then cycling fan, if 0.0 then continuous fan
+        //       Par(5)  = REAL               ! Part Load Ratio
+
+        // Convert parameters to usable variables
+        int waterCoilNum = int(Par[0]);
+        bool firstHVACIteration = (Par[1] == 1.0);
+        Real64 setpoint = Par[2];
+        int opMode = int(Par[3]);
+        Real64 partLoadFrac = Par[4];
+        auto &thisCoil(WaterCoil(waterCoilNum));
+        int controlNum = thisCoil.ControllerIndex;
+        auto& thisController(HVACControllers::ControllerProps(controlNum));
+
+        //Node(WaterCoil(WaterCoilNum).WaterInletNodeNum).MassFlowRate = CWFlow;
+        PlantUtilities::SetActuatedBranchFlowRate(WaterMassFlowRate,
+            thisController.ActuatedNode,
+            thisController.ActuatedNodePlantLoopNum,
+            thisController.ActuatedNodePlantLoopSide,
+            thisController.ActuatedNodePlantLoopBranchNum,
+            false);
+
+        thisCoil.InletWaterMassFlowRate = WaterMassFlowRate;
+        //InitWaterCoil(state, OutputFiles::getSingleton(), waterCoilNum, firstHVACIteration);
+
+        // Calculate the Correct WaterCoil Model with the current CoilNum
+        if (thisCoil.WaterCoilType_Num == WaterCoil_DetFlatFinCooling) {
+            CalcDetailFlatFinCoolingCoil(waterCoilNum, SimCalc, opMode, partLoadFrac);
+        }
+        else if (thisCoil.WaterCoilType_Num == WaterCoil_Cooling) {
+            CoolingCoil(waterCoilNum, firstHVACIteration, SimCalc, opMode, partLoadFrac);
+        }
+
+        if (thisCoil.WaterCoilType_Num == WaterCoil_SimpleHeating) {
+            CalcSimpleHeatingCoil(waterCoilNum, opMode, partLoadFrac, SimCalc);
+        }
+
+        // Calculate residual
+        Real64 sensedValue = 0.0;
+        Real64 inletValue = 0.0;
+        if ((thisController.ControlVar == HVACControllers::iTemperature) ||
+            ((thisController.ControlVar == HVACControllers::iTemperatureAndHumidityRatio) && !thisController.HumRatCtrlOverride)) {
+            sensedValue = thisCoil.OutletAirTemp;
+            inletValue = thisCoil.InletAirTemp;
+        } else if ((thisController.ControlVar == HVACControllers::iHumidityRatio) ||
+            ((thisController.ControlVar == HVACControllers::iTemperatureAndHumidityRatio) && thisController.HumRatCtrlOverride)) {
+            sensedValue = thisCoil.OutletAirHumRat;
+            inletValue = thisCoil.InletAirHumRat;
+        }
+        residuum = sensedValue - setpoint;
+
+        return residuum;
     }
 
     // End of Coil Utility subroutines
