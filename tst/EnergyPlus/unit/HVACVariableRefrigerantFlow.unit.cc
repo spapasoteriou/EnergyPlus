@@ -8040,7 +8040,7 @@ TEST_F(EnergyPlusFixture, VRFTU_CalcVRFSupplementalHeatingCoilWater)
     WaterCoils::WaterCoil(CoilNum).WaterCoilType_Num = WaterCoils::WaterCoil_SimpleHeating;
     WaterCoils::WaterCoil(CoilNum).WaterCoilModel = WaterCoils::CoilType_Heating;
     WaterCoils::WaterCoil(CoilNum).WaterCoilType = WaterCoils::CoilType_Heating;
-    WaterCoils::WaterCoil(CoilNum).WaterCoilTypeA = "Heating";
+    WaterCoils::WaterCoil(CoilNum).WaterCoilTypeA = WaterCoils::isHeatOrCool::Heating;
     WaterCoils::WaterCoil(CoilNum).SchedPtr = DataGlobals::ScheduleAlwaysOn;
     WaterCoils::WaterCoil(CoilNum).WaterLoopNum = 1;
 

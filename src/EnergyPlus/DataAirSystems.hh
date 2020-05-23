@@ -132,6 +132,13 @@ namespace DataAirSystems {
         }
     };
 
+    enum fanModelTypeEnum
+    {
+        fanModelTypeNotYetSet,
+        structArrayLegacyFanModels,
+        objectVectorOOFanSystemModel
+    };
+
     struct AirLoopBranchData // a branch is a sequence of components
     {
         // Members
@@ -147,11 +154,18 @@ namespace DataAirSystems {
         //  TYPE(ExpandedCompData), &
         //           ALLOCATABLE, DIMENSION(:) :: MegaComp              ! Component list
         //  This list would include children, grandchildren, etc.
-        int TotalNodes;      // total number of nodes on branch
-        Array1D_int NodeNum; // node list (numbers)
+        int TotalNodes;                          // total number of nodes on branch
+        Array1D_int NodeNum;                     // node list (numbers)
+        fanModelTypeEnum branchFanModelTypeEnum; // indicates which type of fan model to call for supply fan, legacy or new OO
+        int branchFanNum;                        // index of the supply fan in the Fan data structure when model type is structArrayLegacyFanModels
+        int branchFanVecIndex;     // index in fan object vector for supply fan when model type is objectVectorOOFanSystemModel, zero-based index
+        int branchFanInletNodeNum; // branch fan inlet node number
+        std::string branchFanName; // because the call to simulate a (classic) fan requires name and index
 
         // Default Constructor
-        AirLoopBranchData() : TotalComponents(0), NodeNumIn(0), NodeNumOut(0), DuctType(0), TotalNodes(0)
+        AirLoopBranchData()
+            : TotalComponents(0), NodeNumIn(0), NodeNumOut(0), DuctType(0), TotalNodes(0),
+              branchFanModelTypeEnum(fanModelTypeNotYetSet), branchFanNum(-1), branchFanVecIndex(-1), branchFanInletNodeNum(-1)
         {
         }
     };
@@ -194,12 +208,6 @@ namespace DataAirSystems {
         }
     };
 
-    enum fanModelTypeEnum
-    {
-        fanModelTypeNotYetSet,
-        structArrayLegacyFanModels,
-        objectVectorOOFanSystemModel
-    };
     enum class fanPlacement
     {
         fanPlaceNotSet,
