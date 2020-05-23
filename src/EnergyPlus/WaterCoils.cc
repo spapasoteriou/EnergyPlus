@@ -301,22 +301,22 @@ namespace WaterCoils {
             }
         }
 
-        if (!WarmupFlag && (CoilNum == 5)) {
-            std::string firstHVAC = "False";
-            if (FirstHVACIteration) firstHVAC = "True";
-            std::string humRatOverride = "False";
-            if (HVACControllers::ControllerProps(WaterCoil(CoilNum).ControllerIndex).HumRatCtrlOverride) humRatOverride = "True";
-            ShowContinueErrorTimeStamp("SimulateWaterCoilComponents Before InitWaterCoil: Coil=" + WaterCoil(CoilNum).Name);
-            ShowContinueError("FirstHVACIteration=" + firstHVAC + ", HumRatOverride=" + humRatOverride +
-                ", Coil Inlet Node Air Mass Flow Rate=" + General::RoundSigDigits(DataLoopNode::Node(WaterCoil(CoilNum).AirInletNodeNum).MassFlowRate, 5) +
-                ", Coil Outlet Node Air Mass Flow Rate=" + General::RoundSigDigits(DataLoopNode::Node(WaterCoil(CoilNum).AirOutletNodeNum).MassFlowRate, 5) +
-                ", Coil Water Mass Flow Rate =" + General::RoundSigDigits(DataLoopNode::Node(WaterCoil(CoilNum).WaterInletNodeNum).MassFlowRate, 5));
-            ShowContinueError(
-                "Outlet Temp=" + General::RoundSigDigits(DataLoopNode::Node(WaterCoil(CoilNum).AirOutletNodeNum).Temp, 2) +
-                ", Temp Setpoint =" + General::RoundSigDigits(DataLoopNode::Node(WaterCoil(CoilNum).AirOutletNodeNum).TempSetPoint, 2) +
-                ", Outlet HumRat=" + General::RoundSigDigits(DataLoopNode::Node(WaterCoil(CoilNum).AirOutletNodeNum).HumRat, 6) +
-                ", HumRat Setpoint =" + General::RoundSigDigits(DataLoopNode::Node(WaterCoil(CoilNum).AirOutletNodeNum).HumRatMax, 6));
-        }
+        //if (!WarmupFlag && (CoilNum == 5)) {
+        //    std::string firstHVAC = "False";
+        //    if (FirstHVACIteration) firstHVAC = "True";
+        //    std::string humRatOverride = "False";
+        //    if (HVACControllers::ControllerProps(WaterCoil(CoilNum).ControllerIndex).HumRatCtrlOverride) humRatOverride = "True";
+        //    ShowContinueErrorTimeStamp("SimulateWaterCoilComponents Before InitWaterCoil: Coil=" + WaterCoil(CoilNum).Name);
+        //    ShowContinueError("FirstHVACIteration=" + firstHVAC + ", HumRatOverride=" + humRatOverride +
+        //        ", Coil Inlet Node Air Mass Flow Rate=" + General::RoundSigDigits(DataLoopNode::Node(WaterCoil(CoilNum).AirInletNodeNum).MassFlowRate, 5) +
+        //        ", Coil Outlet Node Air Mass Flow Rate=" + General::RoundSigDigits(DataLoopNode::Node(WaterCoil(CoilNum).AirOutletNodeNum).MassFlowRate, 5) +
+        //        ", Coil Water Mass Flow Rate =" + General::RoundSigDigits(DataLoopNode::Node(WaterCoil(CoilNum).WaterInletNodeNum).MassFlowRate, 5));
+        //    ShowContinueError(
+        //        "Outlet Temp=" + General::RoundSigDigits(DataLoopNode::Node(WaterCoil(CoilNum).AirOutletNodeNum).Temp, 2) +
+        //        ", Temp Setpoint =" + General::RoundSigDigits(DataLoopNode::Node(WaterCoil(CoilNum).AirOutletNodeNum).TempSetPoint, 2) +
+        //        ", Outlet HumRat=" + General::RoundSigDigits(DataLoopNode::Node(WaterCoil(CoilNum).AirOutletNodeNum).HumRat, 6) +
+        //        ", HumRat Setpoint =" + General::RoundSigDigits(DataLoopNode::Node(WaterCoil(CoilNum).AirOutletNodeNum).HumRatMax, 6));
+        //}
 
         // With the correct CoilNum Initialize
         InitWaterCoil(state, OutputFiles::getSingleton(), CoilNum, FirstHVACIteration); // Initialize all WaterCoil related parameters
@@ -364,22 +364,22 @@ namespace WaterCoils {
         UpdateWaterCoil(CoilNum);
 
         // Report the current WaterCoil
-        if (!WarmupFlag && (CoilNum == 5)) {
-            std::string firstHVAC = "False";
-            if (FirstHVACIteration) firstHVAC = "True";
-            std::string humRatOverride = "False";
-            if (HVACControllers::ControllerProps(WaterCoil(CoilNum).ControllerIndex).HumRatCtrlOverride) humRatOverride = "True";
-            ShowContinueErrorTimeStamp("SimulateWaterCoilComponents After UpdateWaterCoil: Coil=" + WaterCoil(CoilNum).Name);
-            ShowContinueError("FirstHVACIteration=" + firstHVAC + ", HumRatOverride="+ humRatOverride +
-                ", Coil Inlet Node Air Mass Flow Rate=" + General::RoundSigDigits(DataLoopNode::Node(WaterCoil(CoilNum).AirInletNodeNum).MassFlowRate, 8) +
-                ", Coil Outlet Node Air Mass Flow Rate=" + General::RoundSigDigits(DataLoopNode::Node(WaterCoil(CoilNum).AirOutletNodeNum).MassFlowRate, 8) +
-                ", Coil Water Mass Flow Rate =" + General::RoundSigDigits(DataLoopNode::Node(WaterCoil(CoilNum).WaterInletNodeNum).MassFlowRate,8));
-            ShowContinueError(
-                "Outlet Temp=" + General::RoundSigDigits(DataLoopNode::Node(WaterCoil(CoilNum).AirOutletNodeNum).Temp, 5) +
-                ", Temp Setpoint =" + General::RoundSigDigits(DataLoopNode::Node(WaterCoil(CoilNum).AirOutletNodeNum).TempSetPoint, 5) +
-                ", Outlet HumRat=" + General::RoundSigDigits(DataLoopNode::Node(WaterCoil(CoilNum).AirOutletNodeNum).HumRat, 6) +
-                ", HumRat Setpoint =" + General::RoundSigDigits(DataLoopNode::Node(WaterCoil(CoilNum).AirOutletNodeNum).HumRatMax, 6));
-        }
+        //if (!WarmupFlag && (CoilNum == 5)) {
+        //    std::string firstHVAC = "False";
+        //    if (FirstHVACIteration) firstHVAC = "True";
+        //    std::string humRatOverride = "False";
+        //    if (HVACControllers::ControllerProps(WaterCoil(CoilNum).ControllerIndex).HumRatCtrlOverride) humRatOverride = "True";
+        //    ShowContinueErrorTimeStamp("SimulateWaterCoilComponents After UpdateWaterCoil: Coil=" + WaterCoil(CoilNum).Name);
+        //    ShowContinueError("FirstHVACIteration=" + firstHVAC + ", HumRatOverride="+ humRatOverride +
+        //        ", Coil Inlet Node Air Mass Flow Rate=" + General::RoundSigDigits(DataLoopNode::Node(WaterCoil(CoilNum).AirInletNodeNum).MassFlowRate, 8) +
+        //        ", Coil Outlet Node Air Mass Flow Rate=" + General::RoundSigDigits(DataLoopNode::Node(WaterCoil(CoilNum).AirOutletNodeNum).MassFlowRate, 8) +
+        //        ", Coil Water Mass Flow Rate =" + General::RoundSigDigits(DataLoopNode::Node(WaterCoil(CoilNum).WaterInletNodeNum).MassFlowRate,8));
+        //    ShowContinueError(
+        //        "Outlet Temp=" + General::RoundSigDigits(DataLoopNode::Node(WaterCoil(CoilNum).AirOutletNodeNum).Temp, 5) +
+        //        ", Temp Setpoint =" + General::RoundSigDigits(DataLoopNode::Node(WaterCoil(CoilNum).AirOutletNodeNum).TempSetPoint, 5) +
+        //        ", Outlet HumRat=" + General::RoundSigDigits(DataLoopNode::Node(WaterCoil(CoilNum).AirOutletNodeNum).HumRat, 6) +
+        //        ", HumRat Setpoint =" + General::RoundSigDigits(DataLoopNode::Node(WaterCoil(CoilNum).AirOutletNodeNum).HumRatMax, 6));
+        //}
 
         ReportWaterCoil(CoilNum);
     }
@@ -6973,8 +6973,8 @@ namespace WaterCoils {
         } else {
             finalResultMassFlow = resultMassFlow1;
 
-            if (!WarmupFlag && (WaterCoilNum == 5)) ShowContinueError("ControlWaterCoil Before HumRat Override: coil->InletAirMassFlowRate=" + General::RoundSigDigits(this->InletAirMassFlowRate, 5) +
-                ", coil->OutletAirMassFlowRate = " + General::RoundSigDigits(this->OutletAirMassFlowRate, 5));
+            //if (!WarmupFlag && (WaterCoilNum == 5)) ShowContinueError("ControlWaterCoil Before HumRat Override: coil->InletAirMassFlowRate=" + General::RoundSigDigits(this->InletAirMassFlowRate, 5) +
+            //    ", coil->OutletAirMassFlowRate = " + General::RoundSigDigits(this->OutletAirMassFlowRate, 5));
             // If needed, control on humrat after temperature
             if (thisController.ControlVar == HVACControllers::iTemperatureAndHumidityRatio) {
                 PlantUtilities::SetActuatedBranchFlowRate(finalResultMassFlow,
@@ -6996,8 +6996,8 @@ namespace WaterCoils {
                     thisController.HumRatCtrlOverride = true;
                     Par[2] = humRatSetpoint;
                     TempSolveRoot::SolveRoot(state, humRatOverrideOffSet, MaxIterations, ExitFlag2, resultMassFlow2, CalcWaterCoilTempResidual, resultMassFlow1, MaxFlow, Par);
-                    if (!WarmupFlag && (WaterCoilNum == 5)) ShowContinueError("ControlWaterCoil after HumRat Root: ExitFlag=" + General::RoundSigDigits(ExitFlag2) +
-                        ", HumRatSetpoint=" + General::RoundSigDigits(humRatSetpoint, 5) + ", OutletHumRat=" + General::RoundSigDigits(this->OutletAirHumRat, 5));
+                    //if (!WarmupFlag && (WaterCoilNum == 5)) ShowContinueError("ControlWaterCoil after HumRat Root: ExitFlag=" + General::RoundSigDigits(ExitFlag2) +
+                    //    ", HumRatSetpoint=" + General::RoundSigDigits(humRatSetpoint, 5) + ", OutletHumRat=" + General::RoundSigDigits(this->OutletAirHumRat, 5));
                     if (ExitFlag2 == -2) {
                         // Min and max flow both exceed setpoint, use maxflow
                         finalResultMassFlow = MaxFlow;
@@ -7027,9 +7027,9 @@ namespace WaterCoils {
             CalcSimpleHeatingCoil(WaterCoilNum, FanOpMode, PLR, SimCalc);
         }
 
-        if (!WarmupFlag && (WaterCoilNum == 5)) ShowContinueError("ControlWaterCoil Exit: coil->InletAirMassFlowRate=" + General::RoundSigDigits(this->InletAirMassFlowRate, 5) +
-            ", coil->OutletAirMassFlowRate = " + General::RoundSigDigits(this->OutletAirMassFlowRate, 5) +
-            ", coil->InletWaterMassFlowRate = " + General::RoundSigDigits(this->InletWaterMassFlowRate, 5));
+        //if (!WarmupFlag && (WaterCoilNum == 5)) ShowContinueError("ControlWaterCoil Exit: coil->InletAirMassFlowRate=" + General::RoundSigDigits(this->InletAirMassFlowRate, 5) +
+        //    ", coil->OutletAirMassFlowRate = " + General::RoundSigDigits(this->OutletAirMassFlowRate, 5) +
+        //    ", coil->InletWaterMassFlowRate = " + General::RoundSigDigits(this->InletWaterMassFlowRate, 5));
     }
 
     Real64 CalcWaterCoilTempResidual(EnergyPlusData& state, Real64 WaterMassFlowRate,       // water mass flow rate [kg/s]
