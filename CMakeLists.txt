@@ -7,7 +7,7 @@ endif()
 
 Project(EnergyPlus)
 
-cmake_minimum_required(VERSION 3.5.1)
+cmake_minimum_required(VERSION 3.12)
 
 if(${CMAKE_MAJOR_VERSION}.${CMAKE_MINOR_VERSION} VERSION_GREATER "3.0")
   CMAKE_POLICY(SET CMP0054 NEW) # CMake 3.1 added this policy
@@ -105,8 +105,13 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
     "MinSizeRel" "RelWithDebInfo")
 endif()
 
-# we are making *a Python 3.6 Interpreter* a required dependency, so find it here
-find_package(PythonInterp 3.6 REQUIRED)
+# we are making *a Python >= 3.6 Interpreter* a required dependency, so find it here
+# If LINK_WITH_PYTHON, also request the Development (libs) at the same time, to ensure consistent version between interpreter and Development
+if(LINK_WITH_PYTHON)
+  find_package(Python 3.6 COMPONENTS Interpreter Development REQUIRED)
+else()
+  find_package(Python 3.6 COMPONENTS Interpreter REQUIRED)
+endif()
 
 if( BUILD_TESTING )
   option( ENABLE_REGRESSION_TESTING "Enable Regression Tests" OFF )
@@ -264,7 +269,7 @@ if( OPENGL_FOUND )
   set_target_properties(tess2 PROPERTIES FOLDER ThirdParty/Penumbra)
 endif()
 
-execute_process( COMMAND ${PYTHON_EXECUTABLE} "${PROJECT_SOURCE_DIR}/scripts/dev/generate_epJSON_schema/generate_epJSON_schema.py" "${PROJECT_SOURCE_DIR}" TIMEOUT 30 RESULT_VARIABLE generate_epJSON_schema_result)
+execute_process( COMMAND ${Python_EXECUTABLE} "${PROJECT_SOURCE_DIR}/scripts/dev/generate_epJSON_schema/generate_epJSON_schema.py" "${PROJECT_SOURCE_DIR}" TIMEOUT 30 RESULT_VARIABLE generate_epJSON_schema_result)
 if( ${generate_epJSON_schema_result} MATCHES ".*timeout.*" )
   message(FATAL_ERROR "Generating epJSON Schema from IDD failed: ${generate_epJSON_schema_result}")
 endif()
