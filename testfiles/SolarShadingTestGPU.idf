@@ -2968,7 +2968,7 @@
   Output:Surfaces:List,Details;
 
   ShadowCalculation,
-    PolygonClipping, !- Shading Calculation Method
+    PixelCounting, !- Shading Calculation Method
     Periodic, !- Shading Calculation Update Frequency Method
     , !- Shading Calculation Update Frequency
     , !- Maximum Figures in Shadow Overlap Calculations
