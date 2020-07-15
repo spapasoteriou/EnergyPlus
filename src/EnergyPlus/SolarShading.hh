@@ -175,11 +175,10 @@ namespace SolarShading {
     extern Array1D<Real64> XTEMP1; // Temporary 'X' values for HC vertices of the overlap
     extern Array1D<Real64> YTEMP1; // Temporary 'Y' values for HC vertices of the overlap
     extern int maxNumberOfFigures;
+    extern bool usePenumbra; // True if penumbra is available and PixelCounting method selected
 
     // SUBROUTINE SPECIFICATIONS FOR MODULE SolarShading
-#ifdef EP_NO_OPENGL
-    extern bool penumbra;
-#else
+#ifndef EP_NO_OPENGL
     extern std::unique_ptr<Pumbra::Penumbra> penumbra;
 #endif
 
