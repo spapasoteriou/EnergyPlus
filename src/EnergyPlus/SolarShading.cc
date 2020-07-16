@@ -5289,7 +5289,6 @@ namespace SolarShading {
         int HTS;                     // Heat transfer surface number for a receiving surface
         int GRSNR;                   // Receiving surface number
         int GSSNR;                   // Shadowing surface number
-        int SBSNR;                   // Subsurface number
         int NBKS;                    // Number of back surfaces for a receiving surface
         int NGSS;                    // Number of shadowing surfaces for a receiving surface
         int NSBS;                    // Number of subsurfaces for a receiving surface
@@ -5405,7 +5404,8 @@ namespace SolarShading {
 
                     // Punch holes for subsurfaces
                     if (Surface(GRSNR).BaseSurf == GRSNR) {  // Only look for subsurfaces on base surfaces
-                        for (int subSurface = 1; subSurface <= TotSurfaces; ++subSurface) {
+                        int zoneNum = Surface(GRSNR).Zone;
+                        for (int subSurface = Zone(zoneNum).SurfaceFirst; subSurface <= Zone(zoneNum).SurfaceLast; ++subSurface) {
                             if (Surface(subSurface).BaseSurf != GRSNR) continue; // Ignore subsurfaces of other surfaces
                             if (!Surface(subSurface).HeatTransSurf) continue;    // Skip non heat transfer subsurfaces
                             if (subSurface == GRSNR) continue;                   // Surface itself cannot be its own subsurface
@@ -5509,8 +5509,9 @@ namespace SolarShading {
             NSBS = 0;
             HasWindow = false;
             // legacy: IF (OSENV(HTS) > 10) WINDOW=.TRUE. -->Note: WINDOW was set true for roof ponds, solar walls, or other zones
-            for (SBSNR = 1; SBSNR <= TotSurfaces; ++SBSNR) { // Loop through the surfaces yet again (looking for subsurfaces of GRSNR)...
-
+            // Loop through the surfaces yet again (looking for subsurfaces of GRSNR)...
+            int zoneNum = Surface(GRSNR).Zone;
+            for (int SBSNR = Zone(zoneNum).SurfaceFirst; SBSNR <= Zone(zoneNum).SurfaceLast; ++SBSNR) {
                 if (!Surface(SBSNR).HeatTransSurf) continue;    // Skip non heat transfer subsurfaces
                 if (SBSNR == GRSNR) continue;                   // Surface itself cannot be its own subsurface
                 if (Surface(SBSNR).BaseSurf != GRSNR) continue; // Ignore subsurfaces of other surfaces and other surfaces
