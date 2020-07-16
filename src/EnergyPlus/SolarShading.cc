@@ -662,6 +662,7 @@ namespace SolarShading {
                     pixelRes = (unsigned)rNumericArgs(3);
                 }
 #ifdef EP_NO_OPENGL
+                ShowWarningError("EP_NO_OPENGL is defined.");
                 ShowWarningError(cCurrentModuleObject + ": invalid " + cAlphaFieldNames(aNum));
                 ShowContinueError("Value entered=\"" + cAlphaArgs(aNum) + "\"");
                 ShowContinueError("This version of EnergyPlus was not compiled to use OpenGL (required for PixelCounting)");
@@ -669,6 +670,7 @@ namespace SolarShading {
                 shadingMethod = ShadingMethod::PolygonClipping;
                 cAlphaArgs(aNum) = "PolygonClipping";
 #else
+                ShowWarningError("EP_NO_OPENGL is not defined.");
                 auto error_callback = [](const int messageType, const std::string & message, void * /*contextPtr*/){
                     if (messageType == Pumbra::MSG_ERR) {
                         ShowSevereError(message);
@@ -679,8 +681,10 @@ namespace SolarShading {
                     }
                 };
                 if (Pumbra::Penumbra::isValidContext()) {
+                    ShowWarningError("Penumbra::isValidContext returned true.");
                     penumbra = std::unique_ptr<Pumbra::Penumbra>(new Pumbra::Penumbra(error_callback, pixelRes));
                 } else {
+                    ShowWarningError("Penumbra::isValidContext returned false.");
                     ShowWarningError("No GPU found (required for PixelCounting)");
                     ShowContinueError("PolygonClipping will be used instead");
                     shadingMethod = ShadingMethod::PolygonClipping;
@@ -945,6 +949,11 @@ namespace SolarShading {
               cAlphaArgs(5),
               cAlphaArgs(6),
               cAlphaArgs(7));
+        if (penumbra) {
+            ShowWarningError("penumbra is true at end of GetShadowingInput");
+        } else {
+            ShowWarningError("penumbra is false at end of GetShadowingInput");
+        }
     }
 
     void AllocateModuleArrays()
@@ -5666,6 +5675,7 @@ namespace SolarShading {
 
 #ifndef EP_NO_OPENGL
         if (penumbra && penumbra->getNumSurfaces() > 0) {
+            ShowWarningError("Executing penumbra->setModel");
             penumbra->setModel();
         }
 #endif
