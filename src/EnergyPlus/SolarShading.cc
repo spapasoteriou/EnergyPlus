@@ -5405,29 +5405,32 @@ namespace SolarShading {
                     // Punch holes for subsurfaces
                     if (Surface(GRSNR).BaseSurf == GRSNR) {  // Only look for subsurfaces on base surfaces
                         int zoneNum = Surface(GRSNR).Zone;
-                        for (int subSurface = Zone(zoneNum).SurfaceFirst; subSurface <= Zone(zoneNum).SurfaceLast; ++subSurface) {
-                            if (Surface(subSurface).BaseSurf != GRSNR) continue; // Ignore subsurfaces of other surfaces
-                            if (!Surface(subSurface).HeatTransSurf) continue;    // Skip non heat transfer subsurfaces
-                            if (subSurface == GRSNR) continue;                   // Surface itself cannot be its own subsurface
+                        if (zoneNum > 0) {
+                            for (int subSurface = Zone(zoneNum).SurfaceFirst; subSurface <= Zone(zoneNum).SurfaceLast; ++subSurface) {
+                                if (Surface(subSurface).BaseSurf != GRSNR) continue; // Ignore subsurfaces of other surfaces
+                                if (!Surface(subSurface).HeatTransSurf) continue;    // Skip non heat transfer subsurfaces
+                                if (subSurface == GRSNR) continue;                   // Surface itself cannot be its own subsurface
 
-                            Pumbra::Polygon subPoly;
-                            if (Surface(subSurface).Reveal > 0.0) {
-                                Real64 R = Surface(subSurface).Reveal;
-                                auto& norm = Surface(subSurface).NewellSurfaceNormalVector;
-                                for (auto v : Surface(subSurface).Vertex) {
-                                    subPoly.push_back(v.x + norm.x*R);
-                                    subPoly.push_back(v.y + norm.y*R);
-                                    subPoly.push_back(v.z + norm.z*R);
+                                Pumbra::Polygon subPoly;
+                                if (Surface(subSurface).Reveal > 0.0) {
+                                    Real64 R = Surface(subSurface).Reveal;
+                                    auto& norm = Surface(subSurface).NewellSurfaceNormalVector;
+                                    for (auto v : Surface(subSurface).Vertex) {
+                                        subPoly.push_back(v.x + norm.x * R);
+                                        subPoly.push_back(v.y + norm.y * R);
+                                        subPoly.push_back(v.z + norm.z * R);
+                                    }
                                 }
-                            } else {
-                                for (auto v : Surface(subSurface).Vertex) {
-                                    subPoly.push_back(v.x);
-                                    subPoly.push_back(v.y);
-                                    subPoly.push_back(v.z);
+                                else {
+                                    for (auto v : Surface(subSurface).Vertex) {
+                                        subPoly.push_back(v.x);
+                                        subPoly.push_back(v.y);
+                                        subPoly.push_back(v.z);
+                                    }
                                 }
+
+                                pSurf.addHole(subPoly);
                             }
-
-                            pSurf.addHole(subPoly);
                         }
                     }
                     Surface(GRSNR).PenumbraID = penumbra->addSurface(pSurf);
@@ -5511,21 +5514,23 @@ namespace SolarShading {
             // legacy: IF (OSENV(HTS) > 10) WINDOW=.TRUE. -->Note: WINDOW was set true for roof ponds, solar walls, or other zones
             // Loop through the surfaces yet again (looking for subsurfaces of GRSNR)...
             int zoneNum = Surface(GRSNR).Zone;
-            for (int SBSNR = Zone(zoneNum).SurfaceFirst; SBSNR <= Zone(zoneNum).SurfaceLast; ++SBSNR) {
-                if (!Surface(SBSNR).HeatTransSurf) continue;    // Skip non heat transfer subsurfaces
-                if (SBSNR == GRSNR) continue;                   // Surface itself cannot be its own subsurface
-                if (Surface(SBSNR).BaseSurf != GRSNR) continue; // Ignore subsurfaces of other surfaces and other surfaces
+            if (zoneNum > 0) {
+                for (int subSurfNum = Zone(zoneNum).SurfaceFirst; subSurfNum <= Zone(zoneNum).SurfaceLast; ++subSurfNum) {
+                    if (!Surface(subSurfNum).HeatTransSurf) continue;    // Skip non heat transfer subsurfaces
+                    if (subSurfNum == GRSNR) continue;                   // Surface itself cannot be its own subsurface
+                    if (Surface(subSurfNum).BaseSurf != GRSNR) continue; // Ignore subsurfaces of other surfaces and other surfaces
 
-                if (dataConstruction.Construct(Surface(SBSNR).Construction).TransDiff > 0.0) HasWindow = true; // Check for window
-                CHKSBS(HTS, GRSNR, SBSNR); // Check that the receiving surface completely encloses the subsurface;
-                // severe error if not
-                ++NSBS;
-                if (NSBS > MaxSBS) {
-                    SBS.redimension(MaxSBS *= 2, 0);
-                }
-                SBS(NSBS) = SBSNR;
+                    if (dataConstruction.Construct(Surface(subSurfNum).Construction).TransDiff > 0.0) HasWindow = true; // Check for window
+                    CHKSBS(HTS, GRSNR, subSurfNum); // Check that the receiving surface completely encloses the subsurface;
+                    // severe error if not
+                    ++NSBS;
+                    if (NSBS > MaxSBS) {
+                        SBS.redimension(MaxSBS *= 2, 0);
+                    }
+                    SBS(NSBS) = subSurfNum;
 
-            } // ...end of surfaces DO loop (SBSNR)
+                } // ...end of surfaces DO loop (SBSNR)
+            }
 
             // Check every surface as a back surface
             NBKS = 0;
